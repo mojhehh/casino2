@@ -910,7 +910,7 @@ html,body{height:100%;height:100dvh;overflow:hidden;overflow-x:hidden;background
 @keyframes chatMsgIn{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
 .chat-msg-avatar{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--neon),var(--neon2));
   display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;color:#fff;flex-shrink:0;}
-.chat-msg-body{flex:1;min-width:0;}
+.chat-msg-body{flex:1;min-width:0;overflow:hidden;}
 .chat-msg-name{font-size:11px;font-weight:700;color:var(--neon);margin-bottom:2px;}
 .chat-msg-name.guest-name{color:var(--text2);}
 .role-badge-owner{display:inline-block;font-size:8px;padding:1px 5px;border-radius:6px;margin-left:4px;background:linear-gradient(135deg,#ff3300,#ff6600);color:#fff;font-weight:900;letter-spacing:.5px;vertical-align:middle;}
@@ -932,8 +932,22 @@ html,body{height:100%;height:100dvh;overflow:hidden;overflow-x:hidden;background
   color:#fff;font-weight:700;font-size:12px;cursor:pointer;transition:all .15s;font-family:'Inter';}
 .chat-send-btn:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,240,255,.3);}
 .chat-send-btn:disabled{opacity:.4;cursor:not-allowed;transform:none!important;}
+.chat-img-btn{padding:8px 10px;background:none;border:1px solid var(--border);border-radius:8px;color:var(--text2);font-size:16px;cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.chat-img-btn:hover{border-color:var(--neon);color:var(--neon);}
+.chat-msg-img{max-width:min(220px,100%);max-height:180px;border-radius:8px;margin-top:4px;cursor:pointer;display:block;object-fit:contain;}
+.chat-msg-avatar img{width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;}
+.chat-fullscreen-btn{background:none;border:none;color:var(--text2);font-size:14px;cursor:pointer;padding:4px;margin-right:4px;}
+.chat-fullscreen-btn:hover{color:var(--neon);}
 .chat-online-count{font-size:10px;color:var(--text2);font-weight:400;}
-@media(max-width:500px){#chatPanel{right:8px;left:8px;width:auto;bottom:70px;max-height:380px;}}
+#chatPanel.fullscreen{position:fixed;top:0;left:0;right:0;bottom:0;width:100%!important;max-height:100%!important;height:100%!important;border-radius:0;z-index:9999;animation:none;}
+#chatPanel.fullscreen .chat-messages{max-height:none!important;min-height:0;flex:1;}
+#chatPanel.fullscreen .chat-msg-img{max-width:min(480px,100%);max-height:360px;}
+#chatPanel.fullscreen .chat-msg-avatar{width:36px;height:36px;font-size:14px;}
+#chatPanel.fullscreen .chat-msg-name{font-size:13px;}
+#chatPanel.fullscreen .chat-msg-text{font-size:14px;}
+#chatPanel.fullscreen .chat-input{font-size:15px;padding:10px 14px;}
+@media(max-width:500px){#chatPanel{right:8px;left:8px;width:auto;bottom:70px;max-height:380px;}
+#chatPanel.fullscreen{bottom:0!important;right:0!important;left:0!important;}}
 
 /* Big Win Animations */
 @keyframes screenShake{
@@ -3322,16 +3336,21 @@ MULTIPLAYER BUCKSHOT ROULETTE ============ -->
 <div id="chatPanel">
   <div class="chat-header">
     <div class="chat-header-title"><span class="online-dot"></span> LOBBY CHAT <span class="chat-online-count" id="chatOnlineCount"></span></div>
-    <button class="chat-close" onclick="toggleChat()">✕</button>
+    <div style="display:flex;align-items:center;">
+      <button class="chat-fullscreen-btn" onclick="toggleChatFullscreen()" title="Fullscreen">⛶</button>
+      <button class="chat-close" onclick="toggleChat()">✕</button>
+    </div>
   </div>
   <div class="chat-messages" id="chatMessages">
     <div class="chat-msg-system">Welcome to Casino Royale chat! Be respectful.</div>
   </div>
   <div class="chat-input-wrap">
     <div id="modMuteBanner">🔇 You are muted: <span id="modMuteReason"></span> — <span id="modMuteTimer"></span></div>
+    <button class="chat-img-btn" onclick="document.getElementById('chatImgInput').click()" title="Send image">🖼️</button>
     <input class="chat-input" id="chatInput" placeholder="Type a message..." maxlength="200" autocomplete="off">
     <button class="chat-send-btn" id="chatSendBtn" onclick="sendChatMessage()">Send</button>
   </div>
+  <input type="file" id="chatImgInput" accept="image/*" style="display:none" onchange="handleChatImageUpload(this)">
 </div>
 
 <!-- Firebase -->
@@ -4460,7 +4479,7 @@ window._sendChatMsg = async (text, username, type) => {
   else if (uname === 'youguyssuck') role = 'bugtester';
   await set(msgRef, {
     user: username || 'Guest',
-    text: text.slice(0, 200),
+    text: type === 'img' ? text : text.slice(0, 200),
     type: type || 'msg', 
     uid: playerId || '',
     ts: Date.now(),
@@ -8019,7 +8038,9 @@ function spinRoulette(){
   const sliceAngle=Math.PI*2/n;
 
   const targetCenter=winIdx*sliceAngle+sliceAngle/2;
-  const targetAngle=-Math.PI/2-targetCenter+Math.PI*2*(6+Math.random()*3);
+  const jitter=(Math.random()-0.5)*sliceAngle*0.7;
+  const fullSpins=6+Math.floor(Math.random()*4);
+  const targetAngle=-Math.PI/2-targetCenter+jitter+Math.PI*2*fullSpins;
   const startAngle=rouletteAngle;
   const totalRot=targetAngle-startAngle;
 
@@ -10866,6 +10887,7 @@ let chatInitialized = false;
 function toggleChat() {
   chatOpen = !chatOpen;
   const panel = document.getElementById('chatPanel');
+  if(!chatOpen){ panel.classList.remove('fullscreen'); const fb=panel.querySelector('.chat-fullscreen-btn'); if(fb){fb.textContent='⛶';fb.title='Fullscreen';} }
   panel.classList.toggle('open', chatOpen);
   if (chatOpen) {
     chatUnread = 0;
@@ -10929,10 +10951,16 @@ window._onChatMessages = function(msgs) {
       if (modIsStaff() && m.uid && m.uid !== window._currentPlayerId) {
         modBtnHtml = ' <button style="font-size:9px;padding:1px 5px;background:rgba(255,50,50,.15);border:1px solid rgba(255,50,50,.3);border-radius:4px;color:#ff6644;cursor:pointer;margin-left:4px;" onclick="modOpenActionOnUser(\'' + m.uid + '\',\'' + escapeHtml(m.user||'Guest') + '\')">MOD</button>';
       }
+      let msgContent = '';
+      if (m.type === 'img' && m.text) {
+        msgContent = '<img class="chat-msg-img" src="' + escapeHtml(m.text) + '" onclick="window.open(this.src)" onerror="this.style.display=\'none\'">';
+      } else {
+        msgContent = '<div class="chat-msg-text">' + escapeHtml(m.text) + '</div>';
+      }
       el.innerHTML = chatAdminHtml + '<div class="chat-msg-avatar">' + avatarContent + '</div>' +
         '<div class="chat-msg-body">' +
           '<div class="chat-msg-name' + (isGuest ? ' guest-name' : '') + '">' + escapeHtml(m.user||'Guest') + roleBadge + pBadge + ' <span class="chat-msg-time">' + timeStr + '</span>' + modBtnHtml + '</div>' +
-          '<div class="chat-msg-text">' + escapeHtml(m.text) + '</div>' +
+          msgContent +
         '</div>';
 
       container.appendChild(el);
@@ -10975,6 +11003,40 @@ function sendChatMessage() {
     showToast('Chat not available', false);
   }
   input.value = '';
+}
+
+async function handleChatImageUpload(input) {
+  const file = input.files[0];
+  if (!file) return;
+  input.value = '';
+  if (!file.type.startsWith('image/')) { showToast('❌ Images only', false); return; }
+  if (file.size > 5 * 1024 * 1024) { showToast('❌ Max 5MB', false); return; }
+  if (isGuestMode) { showToast('Sign in to chat', false); return; }
+  if (window._modIsMuted) { showToast('🔇 You are muted!', false); return; }
+  showToast('⏳ Uploading image...', true);
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await fetch('https://chatra.modmojheh.workers.dev/upload', { method: 'POST', body: formData });
+    const data = await res.json();
+    if (!res.ok || !data.url) throw new Error(data.error || 'Upload failed');
+    const username = window._currentUsername || 'Guest';
+    if (window._sendChatMsg) {
+      await window._sendChatMsg(data.url, username, 'img');
+      const msgs = document.getElementById('chatMessages');
+      if (msgs) msgs.scrollTop = msgs.scrollHeight;
+    }
+  } catch(e) { showToast('❌ Image upload failed', false); console.error(e); }
+}
+
+function toggleChatFullscreen() {
+  const panel = document.getElementById('chatPanel');
+  panel.classList.toggle('fullscreen');
+  const btn = panel.querySelector('.chat-fullscreen-btn');
+  const isFS = panel.classList.contains('fullscreen');
+  if(btn){ btn.textContent = isFS ? '⛶' : '⛶'; btn.title = isFS ? 'Exit Fullscreen' : 'Fullscreen'; btn.style.color = isFS ? 'var(--neon)' : ''; }
+  const msgs = document.getElementById('chatMessages');
+  setTimeout(() => { msgs.scrollTop = msgs.scrollHeight; }, 50);
 }
 
 document.getElementById('chatInput').addEventListener('keydown', function(e) {
