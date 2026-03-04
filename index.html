@@ -11024,7 +11024,7 @@ async function _checkImageNSFW(file) {
     if (!res.ok) return false;
     const data = await res.json();
     const desc = (data.description || '').trim().toUpperCase();
-    return desc.includes('NSFW');
+    return desc.includes('NSFW') || desc.includes('CANNOT BE DESCRIBED') || desc.includes('INAPPROPRIATE') || desc.includes('CANNOT DESCRIBE') || desc.includes('UNABLE TO');
   } catch(e) { console.warn('NSFW check failed, allowing:', e); return false; }
 }
 
