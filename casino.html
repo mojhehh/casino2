@@ -11005,6 +11005,29 @@ function sendChatMessage() {
   input.value = '';
 }
 
+async function _checkImageNSFW(file) {
+  try {
+    const b64 = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result.split(',')[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+    const res = await fetch('https://unfiltered-ai.modmojheh.workers.dev/describe-image', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        image: b64,
+        prompt: 'You are a strict content moderator. Analyze this image and respond with ONLY the word "SAFE" if the image is appropriate, or "NSFW" if it contains any nudity, pornography, sexually explicit content, gore, extreme violence, or other highly inappropriate material. Respond with exactly one word: SAFE or NSFW.'
+      })
+    });
+    if (!res.ok) return false;
+    const data = await res.json();
+    const desc = (data.description || '').trim().toUpperCase();
+    return desc.includes('NSFW');
+  } catch(e) { console.warn('NSFW check failed, allowing:', e); return false; }
+}
+
 async function handleChatImageUpload(input) {
   const file = input.files[0];
   if (!file) return;
@@ -11013,8 +11036,11 @@ async function handleChatImageUpload(input) {
   if (file.size > 5 * 1024 * 1024) { showToast('❌ Max 5MB', false); return; }
   if (isGuestMode) { showToast('Sign in to chat', false); return; }
   if (window._modIsMuted) { showToast('🔇 You are muted!', false); return; }
-  showToast('⏳ Uploading image...', true);
+  showToast('⏳ Checking image...', true);
   try {
+    const isNSFW = await _checkImageNSFW(file);
+    if (isNSFW) { showToast('🚫 Image not appropriate — upload blocked', false); return; }
+    showToast('⏳ Uploading image...', true);
     const formData = new FormData();
     formData.append('file', file);
     const res = await fetch('https://chatra.modmojheh.workers.dev/upload', { method: 'POST', body: formData });
