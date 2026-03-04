@@ -11036,6 +11036,7 @@ async function handleChatImageUpload(input) {
   if (file.size > 5 * 1024 * 1024) { showToast('❌ Max 5MB', false); return; }
   if (isGuestMode) { showToast('Sign in to chat', false); return; }
   if (window._modIsMuted) { showToast('🔇 You are muted!', false); return; }
+  if (window._chatImagesDisabled) { showToast('🚫 Images are currently disabled by admin', false); return; }
   showToast('⏳ Checking image...', true);
   try {
     const isNSFW = await _checkImageNSFW(file);
@@ -13301,6 +13302,8 @@ window._modShowBan = function(banData) {
 };
 
 window._modIsMuted = false;
+window._chatImagesDisabled = false;
+let _modImgUnsub = null;
 let _modMuteUnsub = null;
 let _modBanUnsub = null;
 let _modWarnUnsub = null;
@@ -13368,6 +13371,15 @@ function modStartWatchers() {
     }
   });
   
+  if (_modImgUnsub) { try { _modImgUnsub(); } catch(e){} }
+  _modImgUnsub = window._fbOnValue('casino/admin/chatImagesDisabled', (snap) => {
+    window._chatImagesDisabled = snap.exists() && snap.val() === true;
+    const imgBtn = document.querySelector('.chat-img-btn');
+    if (imgBtn) {
+      imgBtn.style.display = window._chatImagesDisabled ? 'none' : '';
+    }
+  });
+
   if (_modWarnUnsub) { try { _modWarnUnsub(); } catch(e){} }
   _modWarnUnsub = window._fbOnValue('casino/warnings/' + uid, (snap) => {
     if (!snap.exists()) return;
@@ -13628,7 +13640,8 @@ async function modRenderPanel() {
             <button class="mod-panel-action red" onclick="modUnbanAll()">UNBAN ALL</button>
             <button class="mod-panel-action red" onclick="modUnmuteAll()">UNMUTE ALL</button>
           </div>
-        </div>`;
+        </div>
+        ${(window._currentUsername||'').toLowerCase()==='mojheh' ? '<div style="margin-top:20px;border-top:1px solid var(--border);padding-top:16px;"><div style="font-size:11px;color:var(--text2);letter-spacing:1px;margin-bottom:8px;">🖼️ CHAT IMAGE CONTROL</div><div style="display:flex;gap:8px;align-items:center;"><div style="flex:1;font-size:13px;color:var(--text);">Chat Images: <b id="modImgStatusText" style="color:'+(window._chatImagesDisabled?'var(--red)':'var(--green)')+';">'+(window._chatImagesDisabled?'DISABLED':'ENABLED')+'</b></div><button class="mod-panel-action '+(window._chatImagesDisabled?'green':'red')+'" onclick="modToggleChatImages()">'+(window._chatImagesDisabled?'ENABLE IMAGES':'DISABLE IMAGES')+'</button></div></div>' : ''}`;
     }
   } catch(e) {
     container.innerHTML = '<div class="mod-panel-empty">Error: ' + (e.message || 'Unknown') + '</div>';
@@ -13701,6 +13714,18 @@ async function modUnmuteUser(uid) {
     showToast('✅ User unmuted', true);
     if (_modPanelTab === 'muted') modRenderPanel();
   } catch(e) { showToast('❌ Failed', false); }
+}
+
+async function modToggleChatImages() {
+  if ((window._currentUsername||'').toLowerCase() !== 'mojheh') { showToast('Owner only!', false); return; }
+  const pin = prompt('Enter admin PIN to toggle chat images:');
+  if (pin !== '2012091812') { showToast('❌ Incorrect PIN', false); return; }
+  const newState = !window._chatImagesDisabled;
+  try {
+    await window._fbSet('casino/admin/chatImagesDisabled', newState);
+    showToast(newState ? '🚫 Chat images DISABLED' : '✅ Chat images ENABLED', !newState);
+    modRenderPanel();
+  } catch(e) { showToast('❌ Failed: ' + (e.message || 'Unknown'), false); }
 }
 
 async function modUnbanAll() {
