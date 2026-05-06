@@ -5707,6 +5707,10 @@ function authGuestMode() {
   window._onAuthReady('Guest', guestId);
 }
 
+window.authToggleMode = authToggleMode;
+window.authGuestMode = authGuestMode;
+window.togglePwVisibility = togglePwVisibility;
+
 (function initLoginParticles() {
   const c = document.getElementById('loginParticles');
   if (!c) return;
