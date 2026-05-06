@@ -3881,7 +3881,7 @@ document.addEventListener('keydown',function(e){ if(e.key==='Escape'){toggleNavD
 
 <script type="module">
 import{initializeApp}from"https://www.gstatic.com/firebasejs/11.8.1/firebase-app.js";
-import{getFirestore,doc,collection,setDoc,getDoc,getDocs,updateDoc,deleteDoc,onSnapshot,query as fsQuery,orderBy,limit as fsLimit,addDoc,writeBatch,deleteField}from"https://www.gstatic.com/firebasejs/11.8.1/firebase-firestore.js";
+import{getFirestore,initializeFirestore,doc,collection,setDoc,getDoc,getDocs,updateDoc,deleteDoc,onSnapshot,query as fsQuery,orderBy,limit as fsLimit,addDoc,writeBatch,deleteField}from"https://www.gstatic.com/firebasejs/11.8.1/firebase-firestore.js";
 import{getAuth,createUserWithEmailAndPassword,signInWithEmailAndPassword,signOut,onAuthStateChanged}from"https://www.gstatic.com/firebasejs/11.8.1/firebase-auth.js";
 
 const firebaseConfig={
@@ -3894,7 +3894,7 @@ const firebaseConfig={
   measurementId:"G-492LC788QW"
 };
 const app=initializeApp(firebaseConfig);
-const db=getFirestore(app);
+const db=initializeFirestore(app,{experimentalAutoDetectLongPolling:true});
 const auth=getAuth(app);
 
 const _FLAT_MAP={'store/listings':'storeListings','store/sales':'storeSales','admin/eventChat':'adminEventChat','admin/eventPresence':'adminEventPresence','admin/playerReset':'adminPlayerReset','admin/playerGift':'adminPlayerGift'};
