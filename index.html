@@ -137,6 +137,9 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 
 #balanceDisplay{margin-left:auto;display:flex;align-items:center;gap:8px;flex-shrink:0;}
 #balanceDisplay .bal{font-family:'Orbitron';font-size:16px;color:var(--gold);text-shadow:0 0 10px rgba(212,175,55,.45);}
+#balanceDisplay .bal span{transition:color .4s ease,text-shadow .4s ease;}
+#homeBackBtn{position:fixed;bottom:calc(24px + env(safe-area-inset-bottom,0px));right:18px;z-index:9990;display:none;width:46px;height:46px;border-radius:50%;border:1.5px solid var(--gold);background:rgba(10,7,2,.85);backdrop-filter:blur(10px);color:var(--gold);font-size:20px;cursor:pointer;align-items:center;justify-content:center;box-shadow:0 4px 18px rgba(0,0,0,.5),0 0 12px rgba(212,175,55,.2);touch-action:manipulation;-webkit-tap-highlight-color:transparent;transition:transform .15s,box-shadow .15s;}
+#homeBackBtn:active{transform:scale(0.9);}
 #balanceDisplay .add-btn{padding:5px 10px;border-radius:6px;cursor:pointer;
   background:linear-gradient(135deg,#3a2a08,#1a1208);color:var(--gold3);font-weight:800;font-size:12px;
   border:1px solid rgba(212,175,55,.45);transition:all .2s;font-family:'Orbitron';letter-spacing:.4px;}
@@ -1966,7 +1969,7 @@ body.turbo *,body.turbo *::before,body.turbo *::after{
   <button id="navHamburger" onclick="toggleNavDrawer()" aria-label="Menu" style="display:none;flex-shrink:0;width:36px;height:32px;border:none;background:transparent;color:var(--gold);cursor:pointer;padding:4px;align-items:center;justify-content:center;">
     <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
   </button>
-  <div class="logo" title="Home" style="cursor:pointer;display:flex;align-items:center;gap:6px;"><img src="logo.png" alt="" style="height:calc(var(--nav-h) - 12px);width:auto;display:block;filter:drop-shadow(0 0 6px rgba(212,175,55,.45));"><span class="logo-text">HOME</span></div>
+  <div class="logo" title="Home" style="cursor:pointer;display:flex;align-items:center;gap:6px;" onclick="goHomeWithZoom();hapticClick();"><img src="logo.png" alt="" style="height:calc(var(--nav-h) - 12px);width:auto;display:block;filter:drop-shadow(0 0 6px rgba(212,175,55,.45));"><span class="logo-text">HOME</span></div>
 
   <div id="navItems" style="display:contents;">  <button class="nav-btn-inline" onclick="openGamesMenu()" style="margin-left:3px;"><span class="icon"><svg class="ico"><use href="#ico-dice"/></svg></span><span class="nav-label">Games</span></button>
 
@@ -2217,6 +2220,7 @@ document.addEventListener('keydown',function(e){ if(e.key==='Escape'){toggleNavD
 </div>
 
 <canvas id="particles"></canvas>
+<button id="homeBackBtn" aria-label="Back to home" title="Back to Home" onclick="goHomeWithZoom();hapticClick();">⌂</button>
 <div id="cfHint"><span>SWIPE</span><span class="cfh-arrow">›››</span></div>
 
 <div class="win-toast" id="winToast"></div>
@@ -2947,8 +2951,8 @@ document.addEventListener('keydown',function(e){ if(e.key==='Escape'){toggleNavD
       <div class="bsr-status" id="bsrStatus">Your turn — choose wisely.</div>
 
       <div class="bsr-actions">
-        <button class="bsr-shoot-btn bsr-shoot-dealer" id="bsrShootDealer" onclick="bsrShoot('dealer')"><svg class="ico ico-sm"><use href="#ico-target"/></svg> SHOOT DEALER</button>
-        <button class="bsr-shoot-btn bsr-shoot-self" id="bsrShootSelf" onclick="bsrShoot('self')"><svg class="ico ico-sm"><use href="#ico-target"/></svg> SHOOT SELF</button>
+        <button class="bsr-shoot-btn bsr-shoot-dealer" id="bsrShootDealer" onclick="bsrShoot('dealer');hapticShot()"><svg class="ico ico-sm"><use href="#ico-target"/></svg> SHOOT DEALER</button>
+        <button class="bsr-shoot-btn bsr-shoot-self" id="bsrShootSelf" onclick="bsrShoot('self');hapticShot()"><svg class="ico ico-sm"><use href="#ico-target"/></svg> SHOOT SELF</button>
       </div>
     </div>
 
@@ -5486,6 +5490,7 @@ function formatFullMoney(v){
   const withCommas = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
   return sign + '$' + withCommas + '.00';
 }
+let _lastBalForFlash=null;
 function updateBalDisplay(){
   balance=safeNum(balance);
   _balMark();
@@ -5495,6 +5500,17 @@ function updateBalDisplay(){
   el.style.transition='transform .15s';
   el.style.transform='scale(1.15)';
   setTimeout(()=>{el.style.transform='scale(1)';},150);
+  if(_lastBalForFlash!==null){
+    const diff=balance-_lastBalForFlash;
+    if(Math.abs(diff)>0.01){
+      const color=diff>0?'#3fd97f':'#ff3a4d';
+      el.style.color=color;
+      el.style.textShadow=`0 0 12px ${color}`;
+      setTimeout(()=>{el.style.color='';el.style.textShadow='';},700);
+      if(diff>0)hapticWin();
+    }
+  }
+  _lastBalForFlash=balance;
   
   if(balance<=0 && !window._pityOffered){
     window._pityOffered=true;
@@ -5717,6 +5733,7 @@ async function checkPendingRefunds() {
 window._onAuthReady = function(username, uid) {
   document.getElementById('loginScreen').style.display = 'none';
   document.getElementById('topNav').style.display = '';
+  _lastBalForFlash = null;
   const glb = document.getElementById('guestLoginBtn');
   if (glb) glb.style.display = (username === 'Guest') ? 'block' : 'none';
   const uaInit = (username && username[0] || '?').toUpperCase();
@@ -6149,7 +6166,8 @@ function _getActiveGames(){
 function _anyGameActive(){ return _getActiveGames().length > 0; }
 
 function switchGame(game,btn){
-  
+  const hb=document.getElementById('homeBackBtn');
+  if(hb)hb.style.display='flex';
   const activeGames = _getActiveGames();
   if(activeGames.length > 0) {
     showToast('Finish your ' + activeGames[0] + ' game first!', false);
@@ -6296,6 +6314,8 @@ window.goHomeWithZoom = function(){
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
   const catalog = document.getElementById('gameCatalog');
   if(catalog) catalog.style.display = 'flex';
+  const hb=document.getElementById('homeBackBtn');
+  if(hb)hb.style.display='none';
 };
 
 function adjustBet(id,mult){
@@ -6366,9 +6386,59 @@ function playSound(freq,type='sine',dur=0.15,vol=0.1){
   }catch(e){}
 }
 function playWinSound(){playSound(523,'sine',.1,.12);setTimeout(()=>playSound(659,'sine',.1,.12),80);
-  setTimeout(()=>playSound(784,'sine',.15,.12),160);setTimeout(()=>playSound(1047,'sine',.25,.1),240);}
-function playLoseSound(){playSound(200,'sawtooth',.25,.06);setTimeout(()=>playSound(150,'sawtooth',.3,.05),100);}
+  setTimeout(()=>playSound(784,'sine',.15,.12),160);setTimeout(()=>playSound(1047,'sine',.25,.1),240);hapticWin();}
+function playLoseSound(){playSound(200,'sawtooth',.25,.06);setTimeout(()=>playSound(150,'sawtooth',.3,.05),100);hapticLoss();}
 function playClickSound(){playSound(800,'sine',.04,.06);}
+function haptic(pattern){try{if(navigator.vibrate)navigator.vibrate(pattern);}catch(e){}}
+function hapticWin(){haptic([40,20,80]);}
+function hapticLoss(){haptic([120,30,120]);}
+function hapticClick(){haptic(12);}
+function hapticShot(){haptic([60,40,200]);}
+
+const _betMemory=(function(){
+  const KEY='casino_bet_memory';
+  let data={};
+  try{data=JSON.parse(localStorage.getItem(KEY)||'{}');}catch(e){}
+  function save(id,val){
+    data[id]=val;
+    try{localStorage.setItem(KEY,JSON.stringify(data));}catch(e){}
+  }
+  function load(id){return data[id]||null;}
+  return{save,load};
+})();
+
+(function setupBetMemory(){
+  document.addEventListener('change',function(e){
+    if(e.target&&e.target.classList.contains('bet-input')&&e.target.id){
+      _betMemory.save(e.target.id,e.target.value);
+    }
+  });
+  document.addEventListener('input',function(e){
+    if(e.target&&e.target.classList.contains('bet-input')&&e.target.id){
+      _betMemory.save(e.target.id,e.target.value);
+    }
+  });
+  const observer=new MutationObserver(()=>{
+    document.querySelectorAll('.bet-input[id]').forEach(el=>{
+      if(el.dataset.memLoaded)return;
+      el.dataset.memLoaded='1';
+      const saved=_betMemory.load(el.id);
+      if(saved)el.value=saved;
+    });
+  });
+  observer.observe(document.body,{childList:true,subtree:true});
+})();
+
+document.addEventListener('keydown',function(e){
+  if(e.key!=='Enter')return;
+  const focused=document.activeElement;
+  if(!focused||!focused.classList.contains('bet-input'))return;
+  e.preventDefault();
+  const panel=focused.closest('.game-panel');
+  if(!panel)return;
+  const btn=panel.querySelector('.action-btn.primary,button[class*="play"],button[class*="spin"],button[class*="roll"],button[class*="deal"],button[class*="start"]');
+  if(btn&&!btn.disabled)btn.click();
+});
 let _achievementsCache = {};
 
 try { _achievementsCache = JSON.parse(localStorage.getItem('casino_achievements') || '{}'); } catch(e) { _achievementsCache = {}; }
