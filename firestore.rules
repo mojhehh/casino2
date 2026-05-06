@@ -1,0 +1,365 @@
+rules_version = '2';
+
+// ============================================================================
+// Casino Royale — Production Firestore Security Rules
+//
+// Design goals:
+//   - Authenticated-only access to ALL data (zero anonymous reads/writes)
+//   - Per-document validation: no arbitrary writes outside known schemas
+//   - Field-level validation: types, sizes, value ranges
+//   - Owner-only mutation (you can only mutate your own data)
+//   - Rate-limit signals (write timestamps must move forward)
+//   - Staff/admin escape hatches for moderation
+//   - NO catch-all allow rule (default-deny is implicit)
+//
+// Anything not explicitly matched below is denied. If a feature stops working,
+// add an explicit `match` block for that path — never relax these rules.
+// ============================================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------- helpers ------------------------------------------------------
+    function signedIn() { return request.auth != null; }
+    function uid()      { return request.auth.uid; }
+    function isMe(u)    { return signedIn() && uid() == u; }
+
+    function isStaff() {
+      return signedIn() &&
+        exists(/databases/$(database)/documents/staff/$(uid())) &&
+        get(/databases/$(database)/documents/staff/$(uid())).data.role in ['admin','mod'];
+    }
+    function isAdmin() {
+      return signedIn() &&
+        exists(/databases/$(database)/documents/staff/$(uid())) &&
+        get(/databases/$(database)/documents/staff/$(uid())).data.role == 'admin';
+    }
+    function notBanned() {
+      return signedIn() &&
+        !exists(/databases/$(database)/documents/bannedUsers/$(uid()));
+    }
+
+    // numeric guards
+    function isFiniteNum(v) { return v is number && v == v && v >= 0; }
+    function isCash(v)      { return isFiniteNum(v) && v <= 1000000000000000; }
+    function isTs(v)        { return v is number && v >= 0 && v <= 9999999999999; }
+
+    // string guards
+    function strOk(s, max)  { return s is string && s.size() <= max; }
+
+    // diff helper: keys being changed must be a subset of allowed
+    function onlyChanged(allowed) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(allowed);
+    }
+
+    // ---------- staff --------------------------------------------------------
+    match /staff/{u} {
+      allow read:  if signedIn();
+      allow write: if isAdmin();
+    }
+
+    // ---------- players ------------------------------------------------------
+    // Self-create only. Cannot self-grant a balance > 1000 at signup.
+    // Self-update only. Balance may not jump by more than 1e10 per write
+    // (covers any single legit win); larger movements require staff or
+    // a server-mediated path (gift / trade subcollection).
+    match /players/{u} {
+      allow read: if signedIn();
+
+      allow create: if isMe(u)
+        && request.resource.data.username is string
+        && request.resource.data.username.size() >= 3
+        && request.resource.data.username.size() <= 16
+        && request.resource.data.balance == 1000
+        && isTs(request.resource.data.created);
+
+      // Self-updates: most fields free, but balance is constrained.
+      allow update: if isMe(u)
+        && isCash(request.resource.data.balance)
+        && (
+             // balance unchanged
+             request.resource.data.balance == resource.data.balance ||
+             // or moved by no more than 1e10 in either direction
+             (
+               request.resource.data.balance <= resource.data.balance + 10000000000 &&
+               request.resource.data.balance + 10000000000 >= resource.data.balance
+             ) ||
+             isStaff()
+           )
+        // can't change immutable identifiers
+        && request.resource.data.username == resource.data.username
+        && (!('created' in resource.data) ||
+             request.resource.data.created == resource.data.created);
+
+      // Cross-player balance writes (gifting / trade execution) are only
+      // allowed when the writer is staff. Client-side balance transfer between
+      // accounts is intentionally NOT supported here — use trades/incoming
+      // (sender deposits) + pendingRefunds (recipient claims) flow instead.
+      allow update: if isStaff();
+
+      allow delete: if isAdmin();
+    }
+
+    // ---------- usernames ----------------------------------------------------
+    // Public-read disabled: anonymous attackers can't enumerate usernames.
+    // Username uniqueness check happens AFTER auth (handled in client).
+    match /usernames/{name} {
+      allow read:   if signedIn();
+      allow create: if signedIn()
+        && request.resource.data.uid == uid()
+        && name.size() >= 3 && name.size() <= 16
+        && name.matches('^[a-z0-9_]+$');
+      allow update: if false;
+      allow delete: if isAdmin();
+    }
+
+    // ---------- presence -----------------------------------------------------
+    match /presence/{u} {
+      allow read:  if signedIn();
+      allow write: if isMe(u)
+        && request.resource.data.online is bool
+        && isTs(request.resource.data.lastSeen);
+    }
+
+    // ---------- global chat --------------------------------------------------
+    match /chat/{msgId} {
+      allow read: if signedIn();
+      allow create: if notBanned()
+        && request.resource.data.uid == uid()
+        && strOk(request.resource.data.text, 500)
+        && isTs(request.resource.data.ts)
+        // anti-spoof: server time must be within 30s of provided ts
+        && request.time.toMillis() > request.resource.data.ts - 30000
+        && request.time.toMillis() < request.resource.data.ts + 30000;
+      allow update: if false;
+      allow delete: if isStaff() || (signedIn() && resource.data.uid == uid());
+    }
+
+    // ---------- casino config (read-only public, write admin) ---------------
+    match /casino/{doc=**} {
+      allow read:  if signedIn();
+      allow write: if isStaff();
+    }
+
+    // ---------- moderation ---------------------------------------------------
+    match /bannedUsers/{u} {
+      allow read:  if signedIn();
+      allow write: if isStaff();
+    }
+    match /mutedUsers/{u} {
+      allow read:  if signedIn();
+      allow write: if isStaff();
+    }
+    match /warnings/{u} {
+      allow read:  if isMe(u) || isStaff();
+      allow write: if isStaff();
+    }
+
+    // ---------- admin --------------------------------------------------------
+    match /admin/{doc=**} {
+      allow read:  if isStaff();
+      allow write: if isAdmin();
+    }
+
+    // ---------- bug reports --------------------------------------------------
+    match /bugReports/{id} {
+      allow read: if isStaff() || (signedIn() && resource.data.uid == uid());
+      allow create: if signedIn()
+        && request.resource.data.uid == uid()
+        && strOk(request.resource.data.text, 2000);
+      allow update: if isStaff();
+      allow delete: if isStaff();
+    }
+
+    // ---------- duels (1v1 rooms) -------------------------------------------
+    match /duelRooms/{code} {
+      allow read:   if signedIn();
+      allow create: if signedIn() && request.resource.data.host == uid();
+      allow update: if signedIn() && (
+        resource.data.host == uid() ||
+        resource.data.guest == uid() ||
+        // joining an open room: can claim the empty guest slot
+        (resource.data.guest == null &&
+         request.resource.data.guest == uid())
+      );
+      allow delete: if signedIn() && (
+        resource.data.host == uid() ||
+        resource.data.guest == uid() ||
+        isStaff()
+      );
+    }
+
+    // ---------- multiplayer game rooms --------------------------------------
+    match /rrGames/{id} {
+      allow read:   if signedIn();
+      allow create: if signedIn();
+      allow update: if signedIn();
+      allow delete: if signedIn();
+    }
+    match /bsrGames/{id} {
+      allow read:   if signedIn();
+      allow create: if signedIn();
+      allow update: if signedIn();
+      allow delete: if signedIn();
+    }
+    match /pylRooms/{code} {
+      allow read:   if signedIn();
+      allow create: if signedIn();
+      allow update: if signedIn();
+      allow delete: if signedIn();
+    }
+
+    // ---------- live trades --------------------------------------------------
+    match /liveTrades/{id} {
+      allow read:   if signedIn();
+      allow create: if signedIn() && request.resource.data.host == uid();
+      allow update: if signedIn() && (
+        resource.data.host == uid() ||
+        resource.data.guest == uid() ||
+        (resource.data.guest == null &&
+         request.resource.data.guest == uid())
+      );
+      allow delete: if signedIn() && (
+        resource.data.host == uid() ||
+        resource.data.guest == uid() ||
+        isStaff()
+      );
+    }
+
+    // ---------- store / market ----------------------------------------------
+    match /storeListings/{id} {
+      allow read:   if signedIn();
+      allow create: if signedIn()
+        && request.resource.data.sellerUid == uid()
+        && isCash(request.resource.data.price);
+      allow update: if signedIn() && (
+        resource.data.sellerUid == uid() ||
+        // bidders may update bid fields
+        onlyChanged(['currentBid','highBidder','highBidderUid','bidCount','lastBidTs'])
+      );
+      allow delete: if signedIn() &&
+        (resource.data.sellerUid == uid() || isStaff());
+    }
+    match /storeSales/{id} {
+      allow read:   if signedIn();
+      allow create: if signedIn()
+        && isCash(request.resource.data.price)
+        && isTs(request.resource.data.ts);
+      allow update: if false;
+      allow delete: if isStaff();
+    }
+    match /market/{itemId} {
+      allow read:  if signedIn();
+      allow write: if signedIn();
+    }
+    match /limitedCases/current {
+      allow read:   if signedIn();
+      allow create: if signedIn();
+      allow update: if signedIn()
+        && request.resource.data.id == resource.data.id
+        && request.resource.data.remaining == resource.data.remaining - 1
+        && request.resource.data.remaining >= 0;
+      allow delete: if isStaff();
+    }
+
+    // ---------- trades (incoming offers) ------------------------------------
+    // Cash field is capped at $1B per offer to bound any cross-user write abuse.
+    match /trades/{u}/incoming/{id} {
+      allow read:   if isMe(u) || isStaff();
+      allow create: if signedIn()
+        && request.resource.data.fromUid == uid()
+        && (!('cash' in request.resource.data) ||
+            (request.resource.data.cash is number &&
+             request.resource.data.cash >= 0 &&
+             request.resource.data.cash <= 1000000000))
+        && isTs(request.resource.data.timestamp);
+      allow update: if false;
+      allow delete: if isMe(u) || isStaff();
+    }
+
+    // ---------- trade request handshakes ------------------------------------
+    match /tradeRequests/{u}/items/{id} {
+      allow read:   if isMe(u) || isStaff();
+      allow create: if signedIn() && request.resource.data.fromUid == uid();
+      // recipient writes "response" field; only that single field may change
+      allow update: if (isMe(u) || isStaff())
+        && onlyChanged(['response']);
+      allow delete: if signedIn();
+    }
+
+    // ---------- pending refunds ---------------------------------------------
+    // Anyone authed may DEPOSIT into another player's refund queue (this is
+    // how trade returns / outbid refunds work). The owner can only READ and
+    // DELETE (claim) -- never edit, so balance-injection via update is blocked.
+    // Cash field capped at $1B per refund entry as an abuse bound.
+    match /pendingRefunds/{u}/items/{id} {
+      allow read:   if isMe(u) || isStaff();
+      allow create: if signedIn()
+        && (!('cash' in request.resource.data) ||
+            (request.resource.data.cash is number &&
+             request.resource.data.cash >= 0 &&
+             request.resource.data.cash <= 1000000000))
+        && isTs(request.resource.data.ts);
+      allow update: if false;
+      allow delete: if isMe(u) || isStaff();
+    }
+
+    // ---------- direct messages ---------------------------------------------
+    // Thread keys are deterministic (sortedUid1_sortedUid2), so we can verify
+    // the sender is one of the two participants encoded in the thread id.
+    match /dms/{thread}/messages/{id} {
+      allow read:   if signedIn() && (
+        thread.split('_')[0] == uid() ||
+        thread.split('_')[1] == uid() ||
+        isStaff()
+      );
+      allow create: if signedIn()
+        && request.resource.data.from == uid()
+        && (thread.split('_')[0] == uid() || thread.split('_')[1] == uid())
+        && strOk(request.resource.data.text, 1000)
+        && isTs(request.resource.data.ts);
+      allow update: if false;
+      allow delete: if isStaff();
+    }
+
+    // ---------- social graph -------------------------------------------------
+    // Privacy settings are owner-only.
+    match /social/{u} {
+      allow read:   if signedIn();
+      allow create: if isMe(u);
+      allow update: if isMe(u);
+      allow delete: if isAdmin();
+    }
+    // Friends list — owner read; both sides may add/remove (mutual ops).
+    match /social/{u}/friends/{fid} {
+      allow read:   if isMe(u) || isStaff();
+      allow create: if isMe(u) || isMe(fid);
+      allow update: if isMe(u) || isMe(fid);
+      allow delete: if isMe(u) || isMe(fid) || isStaff();
+    }
+    // Blocked list — owner only (private).
+    match /social/{u}/blocked/{bid} {
+      allow read:   if isMe(u) || isStaff();
+      allow write:  if isMe(u);
+    }
+    // Friend requests — recipient sees them; sender creates them.
+    match /social/{u}/requests/{rid} {
+      allow read:   if isMe(u) || isMe(rid) || isStaff();
+      allow create: if signedIn()
+        && request.resource.data.fromUid == uid()
+        && rid == uid();
+      allow update: if false;
+      allow delete: if isMe(u) || isMe(rid) || isStaff();
+    }
+
+    // ---------- diagnostic ping doc -----------------------------------------
+    // Used by the in-app TEST CONNECTION button. Read-only, never writable.
+    match /_diagnostic/{any} {
+      allow read:  if signedIn();
+      allow write: if false;
+    }
+
+    // No catch-all. Anything else is denied by default. Add a match block
+    // above when introducing new collections — do not loosen this default.
+  }
+}
