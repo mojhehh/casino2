@@ -1960,6 +1960,8 @@ body.turbo *,body.turbo *::before,body.turbo *::after{
       <button class="login-btn secondary" id="authToggleBtn" onclick="authToggleMode()">CREATE ACCOUNT</button>
       <button class="login-btn secondary" style="margin-top:4px;border-color:rgba(255,255,255,0.15);color:rgba(255,255,255,0.4);font-family:'Inter',sans-serif;font-size:13px;letter-spacing:0;" onclick="authGuestMode()">Sign in later</button>
       <div class="login-error" id="authError"></div>
+      <button class="login-btn secondary" style="margin-top:4px;border-color:rgba(0,200,255,.4);color:#7adcff;font-family:'Inter',sans-serif;font-size:11px;letter-spacing:1px;" onclick="diagnoseFirebase()">🔍 TEST CONNECTION</button>
+      <div id="authDiag" style="font-size:11px;color:#7adcff;margin-top:6px;text-align:left;font-family:monospace;white-space:pre-wrap;line-height:1.5;"></div>
       <div class="login-toggle" id="authToggleText">Don't have an account? <a onclick="authToggleMode()">Sign up</a></div>
     </div>
   </div>
@@ -4025,6 +4027,33 @@ window._authSubmit = async (username, password, isRegister) => {
 
 window._authLogout = () => signOut(auth);
 
+window._diagnoseFirebase = async () => {
+  const out = [];
+  out.push('Project: ' + firebaseConfig.projectId);
+  out.push('Origin: ' + location.origin);
+  out.push('Online: ' + navigator.onLine);
+  out.push('---');
+  try {
+    const r = await fetch('https://firestore.googleapis.com/v1/projects/' + firebaseConfig.projectId + '/databases/(default)/documents/_ping/_x', {method:'GET'});
+    out.push('Firestore REST: HTTP ' + r.status + ' ' + (r.status===200||r.status===404?'✓ reachable':'✗'));
+  } catch(e) {
+    out.push('Firestore REST: BLOCKED (' + (e.message||e) + ')');
+    out.push('→ Adblocker or extension blocking firestore.googleapis.com');
+  }
+  try {
+    const t0 = Date.now();
+    await getDoc(doc(db, '_diagnostic', 'ping'));
+    out.push('Firestore SDK read: ✓ OK (' + (Date.now()-t0) + 'ms)');
+  } catch(e) {
+    out.push('Firestore SDK read: ✗ ' + (e.code || e.message));
+    if (String(e.code||e.message).includes('permission-denied')) {
+      out.push('→ Firestore RULES are blocking reads. Set rules to allow read,write: if true; in test mode.');
+    } else if (String(e.code||e.message).includes('unavailable')) {
+      out.push('→ Network blocking. Try mobile data, disable adblock, or different network.');
+    }
+  }
+  return out.join('\n');
+};
 
 onAuthStateChanged(auth, async (user) => {
   if (user) {
@@ -5651,6 +5680,16 @@ function authGuestMode() {
   }
 })();
 
+async function diagnoseFirebase(){
+  const out = document.getElementById('authDiag');
+  if(out){ out.textContent = 'Testing…'; }
+  try{
+    const r = await window._diagnoseFirebase();
+    if(out) out.textContent = r;
+  }catch(e){
+    if(out) out.textContent = 'Diagnostic failed: ' + (e.message||e);
+  }
+}
 
 function authToggleMode() {
   authIsRegister = !authIsRegister;
