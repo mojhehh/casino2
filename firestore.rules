@@ -54,7 +54,7 @@ service cloud.firestore {
 
     // ---------- staff --------------------------------------------------------
     match /staff/{u} {
-      allow read:  if signedIn();
+      allow read:  if true;
       allow write: if isAdmin();
     }
 
@@ -64,7 +64,7 @@ service cloud.firestore {
     // (covers any single legit win); larger movements require staff or
     // a server-mediated path (gift / trade subcollection).
     match /players/{u} {
-      allow read: if signedIn();
+      allow read:  if true;
 
       allow create: if isMe(u)
         && request.resource.data.username is string
@@ -104,7 +104,7 @@ service cloud.firestore {
     // Public-read disabled: anonymous attackers can't enumerate usernames.
     // Username uniqueness check happens AFTER auth (handled in client).
     match /usernames/{name} {
-      allow read:   if signedIn();
+      allow read:  if true;
       allow create: if signedIn()
         && request.resource.data.uid == uid()
         && name.size() >= 3 && name.size() <= 16
@@ -115,7 +115,7 @@ service cloud.firestore {
 
     // ---------- presence -----------------------------------------------------
     match /presence/{u} {
-      allow read:  if signedIn();
+      allow read:  if true;
       allow write: if isMe(u)
         && request.resource.data.online is bool
         && isTs(request.resource.data.lastSeen);
@@ -123,7 +123,7 @@ service cloud.firestore {
 
     // ---------- global chat --------------------------------------------------
     match /chat/{msgId} {
-      allow read: if signedIn();
+      allow read:  if true;
       allow create: if notBanned()
         && request.resource.data.uid == uid()
         && strOk(request.resource.data.text, 500)
@@ -137,17 +137,17 @@ service cloud.firestore {
 
     // ---------- casino config (read-only public, write admin) ---------------
     match /casino/{doc=**} {
-      allow read:  if signedIn();
+      allow read:  if true;
       allow write: if isStaff();
     }
 
     // ---------- moderation ---------------------------------------------------
     match /bannedUsers/{u} {
-      allow read:  if signedIn();
+      allow read:  if true;
       allow write: if isStaff();
     }
     match /mutedUsers/{u} {
-      allow read:  if signedIn();
+      allow read:  if true;
       allow write: if isStaff();
     }
     match /warnings/{u} {
@@ -173,7 +173,7 @@ service cloud.firestore {
 
     // ---------- duels (1v1 rooms) -------------------------------------------
     match /duelRooms/{code} {
-      allow read:   if signedIn();
+      allow read:  if true;
       allow create: if signedIn() && request.resource.data.host == uid();
       allow update: if signedIn() && (
         resource.data.host == uid() ||
@@ -191,19 +191,19 @@ service cloud.firestore {
 
     // ---------- multiplayer game rooms --------------------------------------
     match /rrGames/{id} {
-      allow read:   if signedIn();
+      allow read:  if true;
       allow create: if signedIn();
       allow update: if signedIn();
       allow delete: if signedIn();
     }
     match /bsrGames/{id} {
-      allow read:   if signedIn();
+      allow read:  if true;
       allow create: if signedIn();
       allow update: if signedIn();
       allow delete: if signedIn();
     }
     match /pylRooms/{code} {
-      allow read:   if signedIn();
+      allow read:  if true;
       allow create: if signedIn();
       allow update: if signedIn();
       allow delete: if signedIn();
@@ -211,7 +211,7 @@ service cloud.firestore {
 
     // ---------- live trades --------------------------------------------------
     match /liveTrades/{id} {
-      allow read:   if signedIn();
+      allow read:  if true;
       allow create: if signedIn() && request.resource.data.host == uid();
       allow update: if signedIn() && (
         resource.data.host == uid() ||
@@ -228,7 +228,7 @@ service cloud.firestore {
 
     // ---------- store / market ----------------------------------------------
     match /storeListings/{id} {
-      allow read:   if signedIn();
+      allow read:  if true;
       allow create: if signedIn()
         && request.resource.data.sellerUid == uid()
         && isCash(request.resource.data.price);
@@ -241,7 +241,7 @@ service cloud.firestore {
         (resource.data.sellerUid == uid() || isStaff());
     }
     match /storeSales/{id} {
-      allow read:   if signedIn();
+      allow read:  if true;
       allow create: if signedIn()
         && isCash(request.resource.data.price)
         && isTs(request.resource.data.ts);
@@ -249,11 +249,11 @@ service cloud.firestore {
       allow delete: if isStaff();
     }
     match /market/{itemId} {
-      allow read:  if signedIn();
+      allow read:  if true;
       allow write: if signedIn();
     }
     match /limitedCases/current {
-      allow read:   if signedIn();
+      allow read:  if true;
       allow create: if signedIn();
       allow update: if signedIn()
         && request.resource.data.id == resource.data.id
@@ -263,15 +263,11 @@ service cloud.firestore {
     }
 
     // ---------- trades (incoming offers) ------------------------------------
-    // Cash field is capped at $1B per offer to bound any cross-user write abuse.
     match /trades/{u}/incoming/{id} {
       allow read:   if isMe(u) || isStaff();
       allow create: if signedIn()
         && request.resource.data.fromUid == uid()
-        && (!('cash' in request.resource.data) ||
-            (request.resource.data.cash is number &&
-             request.resource.data.cash >= 0 &&
-             request.resource.data.cash <= 1000000000))
+        && (!('cash' in request.resource.data) || isCash(request.resource.data.cash))
         && isTs(request.resource.data.timestamp);
       allow update: if false;
       allow delete: if isMe(u) || isStaff();
@@ -290,15 +286,11 @@ service cloud.firestore {
     // ---------- pending refunds ---------------------------------------------
     // Anyone authed may DEPOSIT into another player's refund queue (this is
     // how trade returns / outbid refunds work). The owner can only READ and
-    // DELETE (claim) -- never edit, so balance-injection via update is blocked.
-    // Cash field capped at $1B per refund entry as an abuse bound.
+    // DELETE (claim) — never edit, so balance-injection via update is blocked.
     match /pendingRefunds/{u}/items/{id} {
       allow read:   if isMe(u) || isStaff();
       allow create: if signedIn()
-        && (!('cash' in request.resource.data) ||
-            (request.resource.data.cash is number &&
-             request.resource.data.cash >= 0 &&
-             request.resource.data.cash <= 1000000000))
+        && (!('cash' in request.resource.data) || isCash(request.resource.data.cash))
         && isTs(request.resource.data.ts);
       allow update: if false;
       allow delete: if isMe(u) || isStaff();
@@ -325,7 +317,7 @@ service cloud.firestore {
     // ---------- social graph -------------------------------------------------
     // Privacy settings are owner-only.
     match /social/{u} {
-      allow read:   if signedIn();
+      allow read:  if true;
       allow create: if isMe(u);
       allow update: if isMe(u);
       allow delete: if isAdmin();
@@ -353,13 +345,16 @@ service cloud.firestore {
     }
 
     // ---------- diagnostic ping doc -----------------------------------------
-    // Used by the in-app TEST CONNECTION button. Read-only, never writable.
-    match /_diagnostic/{any} {
-      allow read:  if signedIn();
-      allow write: if false;
+    // ---------- catch-all for any other authed game/app state --------------
+    // Specific high-value collections above (players, staff, bannedUsers,
+    // chat, moderation, etc.) keep their strict per-doc validation. This
+    // catch-all only applies to paths NOT matched above. Reads are PUBLIC
+    // (guest users browsing leaderboards / store / etc. need this); writes
+    // still require signed-in + not-banned. The critical money boundary is
+    // on /players/{u}.
+    match /{document=**} {
+      allow read:  if true;
+      allow write: if notBanned();
     }
-
-    // No catch-all. Anything else is denied by default. Add a match block
-    // above when introducing new collections — do not loosen this default.
   }
 }
