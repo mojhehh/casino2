@@ -691,7 +691,7 @@ body.reduced-motion *,body.reduced-motion *::before,body.reduced-motion *::after
   transition:all .18s;font-family:'Inter',sans-serif;}
 .logout-btn:hover{background:rgba(255,51,85,.08);border-color:var(--red);transform:translateY(-1px);}
 
-#leaderboardPanel{flex-direction:column;align-items:center;gap:16px;overflow-y:auto;
+#leaderboardPanel{flex-direction:column;align-items:center;gap:16px;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;
   padding:80px 20px 20px;background:radial-gradient(ellipse at top,rgba(22,22,58,0.6) 0%,var(--bg) 70%);}
 .lb-container{width:100%;max-width:700px;animation:fadeInUp .4s ease both;}
 .lb-tabs{display:flex;gap:3px;margin-bottom:16px;flex-wrap:wrap;justify-content:center;}
@@ -1495,6 +1495,8 @@ body.reduced-motion *,body.reduced-motion *::before,body.reduced-motion *::after
   <symbol id="ico-poll" viewBox="0 0 24 24"><rect x="4" y="4" width="5" height="16" rx="1" fill="currentColor" opacity="0.3"/><rect x="4" y="10" width="5" height="10" rx="1" fill="currentColor"/><rect x="10" y="4" width="5" height="16" rx="1" fill="currentColor" opacity="0.3"/><rect x="10" y="7" width="5" height="13" rx="1" fill="currentColor"/><rect x="16" y="4" width="5" height="16" rx="1" fill="currentColor" opacity="0.3"/><rect x="16" y="12" width="5" height="8" rx="1" fill="currentColor"/></symbol>
   <symbol id="ico-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8 11V7a4 4 0 018 0v4" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="16" r="1.5" fill="currentColor"/></symbol>
   <symbol id="ico-bell" viewBox="0 0 24 24"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M13.73 21a2 2 0 01-3.46 0" fill="none" stroke="currentColor" stroke-width="1.8"/></symbol>
+  <symbol id="ico-volume" viewBox="0 0 24 24"><path d="M3 10v4h4l5 4V6L7 10H3z" fill="currentColor"/><path d="M16 8c1.5 1 2.5 2.5 2.5 4S17.5 15 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M19 5c2.5 1.8 4 4.2 4 7s-1.5 5.2-4 7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+  <symbol id="ico-volume-mute" viewBox="0 0 24 24"><path d="M3 10v4h4l5 4V6L7 10H3z" fill="currentColor"/><path d="M16 9l6 6M22 9l-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
   <symbol id="ico-cherry" viewBox="0 0 24 24"><path d="M12 3c0 0 4 2 6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="8" cy="17" r="4" fill="currentColor"/><circle cx="16" cy="17" r="4" fill="currentColor" opacity="0.7"/><path d="M12 3l-4 14M12 3l4 14" stroke="currentColor" stroke-width="1.4" fill="none"/></symbol>
   <symbol id="ico-lemon" viewBox="0 0 24 24"><ellipse cx="12" cy="12" rx="6" ry="9" fill="none" stroke="currentColor" stroke-width="1.8" transform="rotate(35 12 12)"/><path d="M9 9c2 0 4 1 6 3" stroke="currentColor" stroke-width="1.2" fill="none" opacity="0.6"/></symbol>
   <symbol id="ico-clover" viewBox="0 0 24 24"><circle cx="12" cy="6" r="3" fill="currentColor"/><circle cx="6" cy="12" r="3" fill="currentColor"/><circle cx="18" cy="12" r="3" fill="currentColor"/><circle cx="12" cy="18" r="3" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="none" stroke="currentColor" stroke-width="1"/><line x1="12" y1="13" x2="12" y2="22" stroke="currentColor" stroke-width="1.5"/></symbol>
@@ -2002,7 +2004,7 @@ body.turbo *,body.turbo *::before,body.turbo *::after{
   </div>
 
   <div id="balanceDisplay">
-    <button id="muteBtn" onclick="toggleMute()" style="padding:5px 8px;border:none;border-radius:6px;cursor:pointer;background:var(--surface2);color:var(--text);font-size:13px;transition:all .2s;" title="Toggle Sound"><svg class="ico"><use href="#ico-bell"/></svg></button>
+    <button id="muteBtn" onclick="toggleMute()" style="padding:5px 8px;border:none;border-radius:6px;cursor:pointer;background:var(--surface2);color:var(--text);font-size:13px;transition:all .2s;" title="Toggle Sound"><svg class="ico"><use href="#ico-volume"/></svg></button>
     <button id="notifBell" onclick="toggleNotifPanel(event)" title="Notifications" style="padding:5px 8px;border:none;border-radius:6px;cursor:pointer;background:var(--surface2);color:var(--text);font-size:13px;transition:all .2s;"><svg class="ico"><use href="#ico-bell"/></svg><span id="notifBadge"></span></button>
     <button class="daily-bonus-btn" id="dailyBonusBtn" onclick="claimDailyBonus()" style="font-size:11px;padding:4px 10px;"><svg class="ico ico-sm"><use href="#ico-gift"/></svg> DAILY</button>
     <div class="bal">$<span id="balText">1000.00</span></div>
@@ -6481,7 +6483,10 @@ let soundMuted = false;
 function toggleMute() {
   soundMuted = !soundMuted;
   const btn = document.getElementById('muteBtn');
-  if (btn) btn.innerHTML = soundMuted ? _ico('bell','ico-sm') : _ico('bell','ico-sm');
+  if (btn) {
+    btn.innerHTML = '<svg class="ico"><use href="#ico-' + (soundMuted ? 'volume-mute' : 'volume') + '"/></svg>';
+    btn.style.color = soundMuted ? 'var(--red)' : 'var(--text)';
+  }
 }
 let audioCtx=null;
 function ensureAudioCtx(){if(!audioCtx){audioCtx=new(window.AudioContext||window.webkitAudioContext)();}if(audioCtx.state==='suspended')audioCtx.resume();return audioCtx;}
