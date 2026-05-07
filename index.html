@@ -176,7 +176,8 @@ body.reduced-motion *,body.reduced-motion *::before,body.reduced-motion *::after
 .bet-controls{display:flex;align-items:center;gap:10px;padding:12px 16px;background:var(--surface);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
   border-radius:12px;border:1px solid var(--border);animation:fadeInUp .4s ease both .1s;}
 .bet-input{width:120px;padding:8px 12px;border-radius:8px;border:1px solid var(--border);
-  background:var(--bg);color:var(--gold);font-family:'Orbitron';font-size:14px;text-align:right;outline:none;}
+  background:var(--bg);color:var(--gold);font-family:'Orbitron';font-size:14px;text-align:right;outline:none;
+  -webkit-appearance:none;appearance:none;-moz-appearance:textfield;}
 .bet-input:focus{border-color:var(--neon);box-shadow:0 0 10px rgba(255,213,74,.2);}
 .bet-btn{padding:8px 14px;border:none;border-radius:6px;cursor:pointer;font-weight:700;font-size:12px;
   transition:all .15s;font-family:'Inter',sans-serif;}
@@ -1793,10 +1794,31 @@ button.action-btn.primary{
   overflow-x:hidden !important;
   -webkit-overflow-scrolling:touch !important;
   overscroll-behavior:contain;
+  scroll-behavior:smooth;
 }
 #chatPanel .chat-msgs,.chat-messages,#chatMessages{
   overflow-y:auto !important;
   -webkit-overflow-scrolling:touch !important;
+  overscroll-behavior:contain;
+}
+/* iOS Safari: prevent input focus from jumping layout */
+@supports (-webkit-touch-callout: none){
+  html{height:-webkit-fill-available;}
+  body{min-height:-webkit-fill-available;}
+  .game-panel.active{min-height:unset;}
+  /* reduce heavy blurs inside panels for perf */
+  .bet-controls,.htp-box,.slots-machine,.card-game-wrap{
+    backdrop-filter:blur(6px) !important;
+    -webkit-backdrop-filter:blur(6px) !important;
+  }
+  /* range inputs: make thumb big enough to tap */
+  input[type=range]::-webkit-slider-thumb{width:28px;height:28px;}
+  /* number inputs: hide spinners */
+  input[type=number]::-webkit-inner-spin-button,
+  input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0;}
+  /* prevent zoom on input focus */
+  input,select,textarea{font-size:max(16px, 1em) !important;}
+}
   overscroll-behavior:contain;
 }
 
@@ -2280,7 +2302,7 @@ document.addEventListener('keydown',function(e){ if(e.key==='Escape'){toggleNavD
     <div class="bet-controls">
       <span style="color:var(--text2);font-size:13px;font-weight:600;">BET</span>
       <button class="bet-btn bet-half" onclick="adjustBet('slotsBet',0.5)">½</button>
-      <input class="bet-input" type="text" id="slotsBet" value="10" title="Bet amount">
+      <input class="bet-input" type="text" inputmode="decimal" id="slotsBet" value="10" title="Bet amount">
       <button class="bet-btn bet-double" onclick="adjustBet('slotsBet',2)">2×</button>
       <button class="bet-btn" onclick="betAll('slotsBet')" style="background:var(--gold);color:#000;font-weight:900;font-size:10px;">MAX</button>
     </div>
@@ -2300,7 +2322,7 @@ document.addEventListener('keydown',function(e){ if(e.key==='Escape'){toggleNavD
     <div class="bet-controls">
       <span style="color:var(--text2);font-size:13px;font-weight:600;">BET</span>
       <button class="bet-btn bet-half" onclick="adjustBet('crashBet',0.5)">½</button>
-      <input class="bet-input" type="text" id="crashBet" value="10">
+      <input class="bet-input" type="text" inputmode="decimal" id="crashBet" value="10">
       <button class="bet-btn bet-double" onclick="adjustBet('crashBet',2)">2×</button>
       <button class="bet-btn" onclick="betAll('crashBet')" style="background:var(--gold);color:#000;font-weight:900;font-size:10px;">MAX</button>
     </div>
@@ -2330,7 +2352,7 @@ document.addEventListener('keydown',function(e){ if(e.key==='Escape'){toggleNavD
     <div class="bet-controls">
       <span style="color:var(--text2);font-size:13px;font-weight:600;">BET</span>
       <button class="bet-btn bet-half" onclick="adjustBet('roulBetInput',0.5)">½</button>
-      <input class="bet-input" type="text" id="roulBetInput" value="10">
+      <input class="bet-input" type="text" inputmode="decimal" id="roulBetInput" value="10">
       <button class="bet-btn bet-double" onclick="adjustBet('roulBetInput',2)">2×</button>
       <button class="bet-btn" onclick="betAll('roulBetInput')" style="background:var(--gold);color:#000;font-weight:900;font-size:10px;">MAX</button>
     </div>
@@ -2491,13 +2513,13 @@ document.addEventListener('keydown',function(e){ if(e.key==='Escape'){toggleNavD
       <div style="display:flex;gap:8px;justify-content:center;margin-bottom:12px;">
         <div class="bet-controls">
           <span style="color:var(--text2);font-size:12px;font-weight:600;">WAGER $</span>
-          <input class="bet-input" type="number" id="pylWager" value="100" min="10" style="width:80px;">
+          <input class="bet-input" type="text" inputmode="decimal" id="pylWager" value="100" min="10" style="width:80px;">
         </div>
       </div>
       <div style="display:flex;gap:8px;justify-content:center;margin-bottom:12px;">
         <button class="action-btn primary" onclick="pylCreateRoom()" style="font-size:12px;padding:10px 20px;">CREATE ROOM</button>
         <div style="display:flex;gap:4px;">
-          <input class="bet-input" type="text" id="pylJoinCode" placeholder="CODE" style="width:70px;text-transform:uppercase;text-align:center;">
+          <input class="bet-input" type="text" inputmode="decimal" id="pylJoinCode" placeholder="CODE" style="width:70px;text-transform:uppercase;text-align:center;">
           <button class="action-btn primary" onclick="pylJoinRoom()" style="font-size:12px;padding:10px 16px;background:linear-gradient(135deg,#ffd54a,#b8860b);color:#1a0f00;">JOIN</button>
         </div>
       </div>
@@ -2514,7 +2536,7 @@ document.addEventListener('keydown',function(e){ if(e.key==='Escape'){toggleNavD
       <div style="display:flex;gap:10px;justify-content:center;align-items:center;margin-bottom:12px;flex-wrap:wrap;">
         <div class="bet-controls">
           <span style="color:var(--text2);font-size:11px;font-weight:600;">WAGER $</span>
-          <input class="bet-input" type="number" id="pylHSWager" value="500" min="50" style="width:80px;">
+          <input class="bet-input" type="text" inputmode="decimal" id="pylHSWager" value="500" min="50" style="width:80px;">
         </div>
         <div class="bet-controls">
           <span style="color:var(--text2);font-size:11px;font-weight:600;">TARGET</span>
@@ -2583,7 +2605,7 @@ document.addEventListener('keydown',function(e){ if(e.key==='Escape'){toggleNavD
     <div class="bet-controls">
       <span style="color:#8b949e;font-size:12px;font-weight:600;">$</span>
       <button class="bet-btn bet-half" onclick="adjustBet('stockBuyAmt',0.5)">½</button>
-      <input class="bet-input" type="number" id="stockBuyAmt" value="100" min="1" style="width:80px;">
+      <input class="bet-input" type="text" inputmode="decimal" id="stockBuyAmt" value="100" min="1" style="width:80px;">
       <button class="bet-btn bet-double" onclick="adjustBet('stockBuyAmt',2)">2×</button>
     </div>
   </div>
@@ -2621,7 +2643,7 @@ document.addEventListener('keydown',function(e){ if(e.key==='Escape'){toggleNavD
     <div class="bet-controls">
       <span style="color:var(--text2);font-size:12px;font-weight:600;">BET</span>
       <button class="bet-btn bet-half" onclick="adjustBet('bjBet',0.5)">½</button>
-      <input class="bet-input" type="text" id="bjBet" value="10">
+      <input class="bet-input" type="text" inputmode="decimal" id="bjBet" value="10">
       <button class="bet-btn bet-double" onclick="adjustBet('bjBet',2)">2×</button>
       <button class="bet-btn" onclick="betAll('bjBet')" style="background:var(--gold);color:#000;font-weight:900;font-size:10px;">MAX</button>
     </div>
@@ -2676,7 +2698,7 @@ document.addEventListener('keydown',function(e){ if(e.key==='Escape'){toggleNavD
     <div class="bet-controls">
       <span style="color:var(--text2);font-size:12px;font-weight:600;">BET</span>
       <button class="bet-btn bet-half" onclick="adjustBet('diceBet',0.5)">½</button>
-      <input class="bet-input" type="text" id="diceBet" value="10">
+      <input class="bet-input" type="text" inputmode="decimal" id="diceBet" value="10">
       <button class="bet-btn bet-double" onclick="adjustBet('diceBet',2)">2×</button>
       <button class="bet-btn" onclick="betAll('diceBet')" style="background:var(--gold);color:#000;font-weight:900;font-size:10px;">MAX</button>
     </div>
@@ -2694,7 +2716,7 @@ document.addEventListener('keydown',function(e){ if(e.key==='Escape'){toggleNavD
     <div class="bet-controls">
       <span style="color:var(--text2);font-size:12px;font-weight:600;">BET</span>
       <button class="bet-btn bet-half" onclick="adjustBet('towerBet',0.5)">½</button>
-      <input class="bet-input" type="text" id="towerBet" value="10">
+      <input class="bet-input" type="text" inputmode="decimal" id="towerBet" value="10">
       <button class="bet-btn bet-double" onclick="adjustBet('towerBet',2)">2×</button>
       <button class="bet-btn" onclick="betAll('towerBet')" style="background:var(--gold);color:#000;font-weight:900;font-size:10px;">MAX</button>
     </div>
@@ -2718,7 +2740,7 @@ document.addEventListener('keydown',function(e){ if(e.key==='Escape'){toggleNavD
     <div class="bet-controls">
       <span style="color:var(--text2);font-size:12px;font-weight:600;">BET</span>
       <button class="bet-btn bet-half" onclick="adjustBet('coinBet',0.5)">½</button>
-      <input class="bet-input" type="text" id="coinBet" value="10">
+      <input class="bet-input" type="text" inputmode="decimal" id="coinBet" value="10">
       <button class="bet-btn bet-double" onclick="adjustBet('coinBet',2)">2×</button>
       <button class="bet-btn" onclick="betAll('coinBet')" style="background:var(--gold);color:#000;font-weight:900;font-size:10px;">MAX</button>
     </div>
@@ -2737,7 +2759,7 @@ document.addEventListener('keydown',function(e){ if(e.key==='Escape'){toggleNavD
     <div class="bet-controls">
       <span style="color:var(--text2);font-size:12px;font-weight:600;">BET</span>
       <button class="bet-btn bet-half" onclick="adjustBet('kenoBet',0.5)">½</button>
-      <input class="bet-input" type="text" id="kenoBet" value="10">
+      <input class="bet-input" type="text" inputmode="decimal" id="kenoBet" value="10">
       <button class="bet-btn bet-double" onclick="adjustBet('kenoBet',2)">2×</button>
       <button class="bet-btn" onclick="betAll('kenoBet')" style="background:var(--gold);color:#000;font-weight:900;font-size:10px;">MAX</button>
     </div>
@@ -2763,7 +2785,7 @@ document.addEventListener('keydown',function(e){ if(e.key==='Escape'){toggleNavD
     <div class="bet-controls">
       <span style="color:var(--text2);font-size:12px;font-weight:600;">BET</span>
       <button class="bet-btn bet-half" onclick="adjustBet('limboBet',0.5)">½</button>
-      <input class="bet-input" type="text" id="limboBet" value="10">
+      <input class="bet-input" type="text" inputmode="decimal" id="limboBet" value="10">
       <button class="bet-btn bet-double" onclick="adjustBet('limboBet',2)">2×</button>
       <button class="bet-btn" onclick="betAll('limboBet')" style="background:var(--gold);color:#000;font-weight:900;font-size:10px;">MAX</button>
     </div>
@@ -2791,7 +2813,7 @@ document.addEventListener('keydown',function(e){ if(e.key==='Escape'){toggleNavD
     <div class="bet-controls">
       <span style="color:var(--text2);font-size:12px;font-weight:600;">BET</span>
       <button class="bet-btn bet-half" onclick="adjustBet('pokerBet',0.5)">½</button>
-      <input class="bet-input" type="text" id="pokerBet" value="10">
+      <input class="bet-input" type="text" inputmode="decimal" id="pokerBet" value="10">
   
       <button class="bet-btn bet-double" onclick="adjustBet('pokerBet',2)">2×</button>
       <button class="bet-btn" onclick="betAll('pokerBet')" style="background:var(--gold);color:#000;font-weight:900;font-size:10px;">MAX</button>
@@ -2834,7 +2856,7 @@ document.addEventListener('keydown',function(e){ if(e.key==='Escape'){toggleNavD
     <div class="bet-controls">
       <span style="color:var(--text2);font-size:12px;font-weight:600;">BET</span>
       <button class="bet-btn bet-half" onclick="adjustBet('wheelBet',0.5)">½</button>
-      <input class="bet-input" type="text" id="wheelBet" value="10">
+      <input class="bet-input" type="text" inputmode="decimal" id="wheelBet" value="10">
       <button class="bet-btn bet-double" onclick="adjustBet('wheelBet',2)">2×</button>
       <button class="bet-btn" onclick="betAll('wheelBet')" style="background:var(--gold);color:#000;font-weight:900;font-size:10px;">MAX</button>
     </div>
@@ -2862,7 +2884,7 @@ document.addEventListener('keydown',function(e){ if(e.key==='Escape'){toggleNavD
     <div class="bet-controls">
       <span style="color:var(--text2);font-size:12px;font-weight:600;">BET</span>
       <button class="bet-btn bet-half" onclick="adjustBet('baccBet',0.5)">½</button>
-      <input class="bet-input" type="text" id="baccBet" value="10">
+      <input class="bet-input" type="text" inputmode="decimal" id="baccBet" value="10">
       <button class="bet-btn bet-double" onclick="adjustBet('baccBet',2)">2×</button>
       <button class="bet-btn" onclick="betAll('baccBet')" style="background:var(--gold);color:#000;font-weight:900;font-size:10px;">MAX</button>
     </div>
@@ -2885,7 +2907,7 @@ document.addEventListener('keydown',function(e){ if(e.key==='Escape'){toggleNavD
     <div class="bet-controls">
       <span style="color:var(--text2);font-size:12px;font-weight:600;">BET</span>
       <button class="bet-btn bet-half" onclick="adjustBet('hiloBet',0.5)">½</button>
-      <input class="bet-input" type="text" id="hiloBet" value="10">
+      <input class="bet-input" type="text" inputmode="decimal" id="hiloBet" value="10">
       <button class="bet-btn bet-double" onclick="adjustBet('hiloBet',2)">2×</button>
       <button class="bet-btn" onclick="betAll('hiloBet')" style="background:var(--gold);color:#000;font-weight:900;font-size:10px;">MAX</button>
     </div>
@@ -2943,7 +2965,7 @@ document.addEventListener('keydown',function(e){ if(e.key==='Escape'){toggleNavD
       <div class="bet-controls">
         <span style="color:var(--text2);font-size:12px;font-weight:600;">BET</span>
         <button class="bet-btn bet-half" onclick="adjustBet('bsrBet',0.5)">½</button>
-        <input class="bet-input" type="text" id="bsrBet" value="100">
+        <input class="bet-input" type="text" inputmode="decimal" id="bsrBet" value="100">
         <button class="bet-btn bet-double" onclick="adjustBet('bsrBet',2)">2×</button>
         <button class="bet-btn" onclick="betAll('bsrBet')" style="background:var(--gold);color:#000;font-weight:900;font-size:10px;">MAX</button>
       </div>
@@ -3052,7 +3074,7 @@ document.addEventListener('keydown',function(e){ if(e.key==='Escape'){toggleNavD
       <div class="bet-controls">
         <span style="color:var(--text2);font-size:12px;font-weight:600;">BET</span>
         <button class="bet-btn bet-half" onclick="adjustBet('rrBet',0.5)">½</button>
-        <input class="bet-input" type="text" id="rrBet" value="100">
+        <input class="bet-input" type="text" inputmode="decimal" id="rrBet" value="100">
         <button class="bet-btn bet-double" onclick="adjustBet('rrBet',2)">2×</button>
         <button class="bet-btn" onclick="betAll('rrBet')" style="background:var(--gold);color:#000;font-weight:900;font-size:10px;">MAX</button>
       </div>
@@ -3066,7 +3088,7 @@ document.addEventListener('keydown',function(e){ if(e.key==='Escape'){toggleNavD
       <div class="bet-controls">
         <span style="color:var(--text2);font-size:12px;font-weight:600;">WAGER</span>
         <button class="bet-btn bet-half" onclick="adjustBet('rrPvpBet',0.5)">½</button>
-        <input class="bet-input" type="text" id="rrPvpBet" value="100">
+        <input class="bet-input" type="text" inputmode="decimal" id="rrPvpBet" value="100">
         <button class="bet-btn bet-double" onclick="adjustBet('rrPvpBet',2)">2×</button>
         <button class="bet-btn" onclick="betAll('rrPvpBet')" style="background:var(--gold);color:#000;font-weight:900;font-size:10px;">MAX</button>
       </div>
@@ -3132,7 +3154,7 @@ document.addEventListener('keydown',function(e){ if(e.key==='Escape'){toggleNavD
         <div class="bet-controls">
           <span style="color:var(--text2);font-size:12px;font-weight:600;">WAGER</span>
           <button class="bet-btn bet-half" onclick="adjustBet('mpbsrBet',0.5)">½</button>
-          <input class="bet-input" type="text" id="mpbsrBet" value="100">
+          <input class="bet-input" type="text" inputmode="decimal" id="mpbsrBet" value="100">
           <button class="bet-btn bet-double" onclick="adjustBet('mpbsrBet',2)">2×</button>
           <button class="bet-btn" onclick="betAll('mpbsrBet')" style="background:var(--gold);color:#000;font-weight:900;font-size:10px;">MAX</button>
         </div>
@@ -3986,7 +4008,7 @@ function _wrapSnap(data,key){
 }
 
 const _disconnectActions=new Map();
-window.addEventListener('beforeunload',()=>{
+function _runDisconnectActions(){
   for(const[path,action]of _disconnectActions){
     const r=_resolvePath(path);const dRef=_getRef(r);
     if(action.type==='remove'){
@@ -3997,7 +4019,10 @@ window.addEventListener('beforeunload',()=>{
       else setDoc(dRef,typeof action.val==='object'&&action.val!==null?action.val:{_v:action.val}).catch(()=>{});
     }
   }
-});
+}
+// beforeunload fires on desktop; pagehide fires on iOS Safari when user backgrounds/closes
+window.addEventListener('beforeunload', _runDisconnectActions);
+window.addEventListener('pagehide', _runDisconnectActions);
 
 let currentUser = null;
 let currentUsername = '';
@@ -8800,7 +8825,8 @@ async function savePrivacySettings() {
 }
 
 window.addEventListener('load', () => { if (window._setOnlineStatus) window._setOnlineStatus(true); });
-window.addEventListener('beforeunload', () => { if (window._setOnlineStatus) window._setOnlineStatus(false); });
+window.addEventListener('beforeunload',()=>{ if(window._setOnlineStatus) window._setOnlineStatus(false); });
+window.addEventListener('pagehide',()=>{ if(window._setOnlineStatus) window._setOnlineStatus(false); });
 
 (function(){
   let banner;
@@ -11928,7 +11954,7 @@ function hrRenderRaceCard() {
   html += '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:center;">';
   html += '<div class="bet-controls"><span style="color:var(--text2);font-size:12px;font-weight:600;">BET</span>';
   html += '<button class="bet-btn bet-half" onclick="adjustBet(\'horseBet\',0.5)">½</button>';
-  html += '<input class="bet-input" type="text" id="horseBet" value="10">';
+  html += '<input class="bet-input" type="text" inputmode="decimal" id="horseBet" value="10">';
   html += '<button class="bet-btn bet-double" onclick="adjustBet(\'horseBet\',2)">2×</button>';
   html += '<button class="bet-btn" onclick="betAll(\'horseBet\')" style="background:var(--gold);color:#000;font-weight:900;font-size:10px;">MAX</button>';
   html += '</div>';
@@ -12517,7 +12543,21 @@ window.addEventListener('load',()=>{
   if(document.querySelector('#wheelPanel.active')&&typeof drawWheel==='function'){try{drawWheel(wheelAngle||0);}catch(e){}}
 });
   
-  if(window.visualViewport){document.documentElement.style.setProperty('--vh',window.visualViewport.height+'px');window.visualViewport.addEventListener('resize',()=>{document.documentElement.style.setProperty('--vh',window.visualViewport.height+'px');});}
+  if(window.visualViewport){
+    const setVH=()=>document.documentElement.style.setProperty('--vh',window.visualViewport.height+'px');
+    setVH();
+    window.visualViewport.addEventListener('resize',setVH);
+    // iOS Safari: when keyboard opens, scroll active panel back to top so content not hidden
+    window.visualViewport.addEventListener('resize',()=>{
+      const panel=document.querySelector('.game-panel.active');
+      if(panel && document.activeElement && (document.activeElement.tagName==='INPUT'||document.activeElement.tagName==='TEXTAREA')){
+        requestAnimationFrame(()=>{
+          const el=document.activeElement;
+          if(el && typeof el.scrollIntoView==='function') el.scrollIntoView({block:'nearest',behavior:'smooth'});
+        });
+      }
+    });
+  }
   setInterval(firebaseSave,30000);
   
   let _lastTradeReqCount = 0;
@@ -12536,7 +12576,8 @@ window.addEventListener('load',()=>{
 });
 
 window.addEventListener('beforeunload',()=>{ if(window._flushStatsNow) window._flushStatsNow(); firebaseSaveNow(); });
-window.addEventListener('visibilitychange',()=>{ if(document.hidden) firebaseSave(); });
+window.addEventListener('pagehide',()=>{ if(window._flushStatsNow) window._flushStatsNow(); firebaseSaveNow(); });
+window.addEventListener('visibilitychange',()=>{ if(document.hidden){ if(window._flushStatsNow) window._flushStatsNow(); firebaseSave(); } });
 
 document.addEventListener('keydown',e=>{
   if(e.code==='Space'){
