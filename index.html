@@ -8393,7 +8393,8 @@ async function storeBuy(listingId, price) {
   try {
     const res = await window._storeBuyItem(listingId);
     if (res.error) { showToast(res.error, false); return; }
-    const actualPrice = res.item.price || price;
+    let actualPrice = safeNum(res.item.price || price);
+    if (!Number.isFinite(actualPrice) || actualPrice <= 0 || actualPrice > balance + 1) { showToast('Invalid price from server', false); return; }
     balance -= actualPrice; updateBalDisplay();
     addToInventory(res.item.itemId);
     showToast('Purchased ' + (res.item.itemName || 'item') + '!', true);
@@ -8404,7 +8405,7 @@ async function storeBuy(listingId, price) {
 async function storeBid(listingId) {
   const bidInput = document.getElementById('bid_' + listingId);
   const amount = parseBet(bidInput ? bidInput.value : 0);
-  if (!amount || amount < 1) { showToast('Enter a valid bid', false); return; }
+  if (!Number.isFinite(amount) || amount < 1) { showToast('Enter a valid bid', false); return; }
   if (amount > balance) { showToast('Not enough balance!', false); return; }
   try {
     const res = await window._storePlaceBid(listingId, amount);
@@ -9812,6 +9813,7 @@ function addToCaseRecentFeed(cat, rar) {
 function openCase() {
   if (caseOpening) return;
   const c = CASES[selectedCase];
+  if(!c || !Number.isFinite(c.price) || c.price <= 0){showToast('Invalid case',false);return;}
   if(c.price>balance){showToast('Not enough balance!',false);return;}
   caseOpening = true; balance -= c.price; updateBalDisplay();
   document.getElementById('openCaseBtn').disabled = true;
@@ -9929,6 +9931,7 @@ function openCase() {
 function quickOpenCase() {
   if (caseOpening) return;
   const c = CASES[selectedCase];
+  if(!c || !Number.isFinite(c.price) || c.price <= 0){showToast('Invalid case',false);return;}
   if(c.price>balance){showToast('Not enough balance!',false);return;}
   caseOpening = true;
   balance -= c.price; updateBalDisplay();
