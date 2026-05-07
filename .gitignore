@@ -1,1 +1,7 @@
-
+.claude-chat.log
+.claude/
+*.log
+*.bak
+_emoji_audit.js
+index.html.truncated.bak
+index (2).html
