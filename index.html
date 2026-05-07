@@ -5343,15 +5343,22 @@ window._sendChatMsg = async (text, username, type) => {
   });
   
   try {
-    const allMsgs = await getDocs(collection(db, 'chat'));
-    if (allMsgs.size > 100) {
-      const sorted = [];
-      allMsgs.forEach(d => sorted.push({ id: d.id, ts: d.data().ts || 0, ref: d.ref }));
-      sorted.sort((a, b) => a.ts - b.ts);
-      const toDelete = sorted.slice(0, sorted.length - 100);
-      const batch = writeBatch(db);
-      toDelete.forEach(m => batch.delete(m.ref));
-      batch.commit().catch(()=>{});
+    /* Only trim once per 5 minutes per client to avoid O(N) reads on every send */
+    const _now = Date.now();
+    const _trimKey = 'casino_chat_trim_ts';
+    const _lastTrim = parseInt(localStorage.getItem(_trimKey) || '0');
+    if (_now - _lastTrim > 5 * 60 * 1000) {
+      localStorage.setItem(_trimKey, String(_now));
+      const allMsgs = await getDocs(collection(db, 'chat'));
+      if (allMsgs.size > 100) {
+        const sorted = [];
+        allMsgs.forEach(d => sorted.push({ id: d.id, ts: d.data().ts || 0, ref: d.ref }));
+        sorted.sort((a, b) => a.ts - b.ts);
+        const toDelete = sorted.slice(0, sorted.length - 100);
+        const batch = writeBatch(db);
+        toDelete.forEach(m => batch.delete(m.ref));
+        batch.commit().catch(()=>{});
+      }
     }
   } catch(e) {}
 };
@@ -5871,7 +5878,8 @@ window._onAuthReady = function(username, uid) {
   _lastBalForFlash = null;
   const glb = document.getElementById('guestLoginBtn');
   if (glb) glb.style.display = (username === 'Guest') ? 'block' : 'none';
-  const uaInit = (username && username[0] || '?').toUpperCase();
+  const uaInitRaw = (username && username[0] || '?').toUpperCase();
+  const uaInit = /^[A-Z0-9]$/.test(uaInitRaw) ? uaInitRaw : '?';
   document.getElementById('userAvatar').innerHTML = `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><defs><linearGradient id="avG" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stop-color="#f0d77a"/><stop offset=".55" stop-color="#d4af37"/><stop offset="1" stop-color="#7a5510"/></linearGradient></defs><circle cx="50" cy="50" r="48" fill="url(#avG)" stroke="#fff7d6" stroke-width="1.5"/><text x="50" y="60" font-family="Orbitron,Inter,sans-serif" font-weight="900" font-size="48" fill="#1a1208" text-anchor="middle">${uaInit}</text></svg>`;
   document.getElementById('userNameDisplay').textContent = username;
   
@@ -6734,7 +6742,7 @@ function openPfpPicker() {
   if (customPfpUrl) {
     const customDiv = document.createElement('div');
     customDiv.style.cssText = 'width:48px;height:48px;display:flex;align-items:center;justify-content:center;border-radius:10px;cursor:pointer;border:2px solid ' + (!selectedPfp && customPfpUrl ? 'var(--gold)' : 'var(--border)') + ';background:var(--bg);transition:all .15s;overflow:hidden;';
-    customDiv.innerHTML = '<img src="' + customPfpUrl + '" style="width:100%;height:100%;object-fit:cover;border-radius:8px;">';
+    customDiv.innerHTML = '<img src="' + escapeHtml(customPfpUrl) + '" style="width:100%;height:100%;object-fit:cover;border-radius:8px;" onerror="this.style.display=\'none\'">';
     customDiv.title = 'Your custom avatar';
     customDiv.onmouseover = function(){ this.style.transform='scale(1.15)'; };
     customDiv.onmouseout = function(){ this.style.transform='scale(1)'; };
@@ -6808,6 +6816,7 @@ async function handlePfpUpload(input) {
       throw new Error(data.error || 'Upload failed');
     }
     
+    if (!/^https?:\/\//.test(data.url)) throw new Error('Invalid upload URL');
     customPfpUrl = data.url;
     selectedPfp = '';
     localStorage.setItem('casino_pfp_url', customPfpUrl);
@@ -6830,14 +6839,16 @@ function applyPfp() {
   const name = window._currentUsername || 'Guest';
   const init = name.charAt(0).toUpperCase();
   if (customPfpUrl) {
-    document.getElementById('userAvatar').innerHTML = '<img src="' + customPfpUrl + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">';
-    document.getElementById('profileAvatar').innerHTML = '<img src="' + customPfpUrl + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">';
+    const _safePfp = /^https?:\/\//.test(customPfpUrl) ? customPfpUrl : '';
+    document.getElementById('userAvatar').innerHTML = '<img src="' + escapeHtml(_safePfp) + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" onerror="this.style.display=\'none\'">';
+    document.getElementById('profileAvatar').innerHTML = '<img src="' + escapeHtml(_safePfp) + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" onerror="this.style.display=\'none\'">';
   } else if (selectedPfp) {
     document.getElementById('userAvatar').innerHTML = '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;">' + _ico(selectedPfp,'ico-xl') + '</div>';
     document.getElementById('profileAvatar').innerHTML = '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;">' + _ico(selectedPfp,'ico-3x') + '</div>';
   } else {
-    document.getElementById('userAvatar').innerHTML = `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="avG" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stop-color="#f0d77a"/><stop offset=".55" stop-color="#d4af37"/><stop offset="1" stop-color="#7a5510"/></linearGradient></defs><circle cx="50" cy="50" r="48" fill="url(#avG)" stroke="#fff7d6" stroke-width="1.5"/><text x="50" y="60" font-family="Orbitron,Inter,sans-serif" font-weight="900" font-size="48" fill="#1a1208" text-anchor="middle">${init}</text></svg>`;
-    document.getElementById('profileAvatar').innerHTML = `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="profG" x1="0" x2="1"><stop offset="0" stop-color="#ffb86b"/><stop offset="1" stop-color="#ff6b6b"/></linearGradient></defs><circle cx="50" cy="50" r="48" fill="url(#profG)"/><text x="50" y="60" font-family="Orbitron,Inter,sans-serif" font-weight="900" font-size="42" fill="#071028" text-anchor="middle">${init}</text></svg>`;
+    const _safeInit = /^[A-Z0-9]$/.test(init) ? init : '?';
+    document.getElementById('userAvatar').innerHTML = `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="avG" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stop-color="#f0d77a"/><stop offset=".55" stop-color="#d4af37"/><stop offset="1" stop-color="#7a5510"/></linearGradient></defs><circle cx="50" cy="50" r="48" fill="url(#avG)" stroke="#fff7d6" stroke-width="1.5"/><text x="50" y="60" font-family="Orbitron,Inter,sans-serif" font-weight="900" font-size="48" fill="#1a1208" text-anchor="middle">${_safeInit}</text></svg>`;
+    document.getElementById('profileAvatar').innerHTML = `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="profG" x1="0" x2="1"><stop offset="0" stop-color="#ffb86b"/><stop offset="1" stop-color="#ff6b6b"/></linearGradient></defs><circle cx="50" cy="50" r="48" fill="url(#profG)"/><text x="50" y="60" font-family="Orbitron,Inter,sans-serif" font-weight="900" font-size="42" fill="#071028" text-anchor="middle">${_safeInit}</text></svg>`;
   }
 }
 
@@ -7051,7 +7062,7 @@ const PRESTIGE_COLORS = ['prestige-1','prestige-2','prestige-3','prestige-4','pr
 window._loadPrestige = (val) => { prestigeLevel = val || 0; };
 window._getPrestige = () => prestigeLevel;
 
-window._loadProfilePicUrl = (url) => { customPfpUrl = url || ''; localStorage.setItem('casino_pfp_url', customPfpUrl); if (customPfpUrl) { selectedPfp = ''; localStorage.setItem('casino_pfp', ''); } applyPfp(); };
+window._loadProfilePicUrl = (url) => { /* Only accept http/https URLs to prevent javascript: injection */ const safe = (url && /^https?:\/\//.test(url)) ? url : ''; customPfpUrl = safe; localStorage.setItem('casino_pfp_url', customPfpUrl); if (customPfpUrl) { selectedPfp = ''; localStorage.setItem('casino_pfp', ''); } applyPfp(); };
 window._getProfilePicUrl = () => customPfpUrl || null;
 
 function getPrestigeReq() {
@@ -12398,14 +12409,14 @@ window._onChatMessages = function(msgs) {
       else if (m.role === 'co-owner') roleBadge = '<span class="role-badge-coowner">CO-OWNER</span>';
       else if (m.role === 'admin') roleBadge = '<span class="role-badge-admin">ADMIN</span>';
       else if (m.role === 'bugtester') roleBadge = '<span class="role-badge-bugtester">BUG TESTER</span>';
-      const avatarContent = m.profilePicUrl ? `<img src="${m.profilePicUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">` : initial;
+      const avatarContent = m.profilePicUrl ? '<img src="' + escapeHtml(m.profilePicUrl) + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" onerror="this.style.display=\'none\'">': initial;
       let chatAdminHtml = '';
       if (modIsStaff()) {
-        chatAdminHtml += '<button class="mod-chat-admin-btn" onclick="modDeleteChatMsg(\'' + m.id + '\')" title="Delete message">'+_ico('trash','ico-sm')+'</button>';
+        chatAdminHtml += '<button class="mod-chat-admin-btn" data-msgid="' + escapeHtml(m.id) + '" onclick="modDeleteChatMsg(this.dataset.msgid)" title="Delete message">'+_ico('trash','ico-sm')+'</button>';
       }
       let modBtnHtml = '';
       if (modIsStaff() && m.uid && m.uid !== window._currentPlayerId) {
-        modBtnHtml = ' <button style="font-size:9px;padding:1px 5px;background:rgba(255,50,50,.15);border:1px solid rgba(255,50,50,.3);border-radius:4px;color:#ff6644;cursor:pointer;margin-left:4px;" onclick="modOpenActionOnUser(\'' + m.uid + '\',\'' + escapeHtml(m.user||'Guest') + '\')">MOD</button>';
+        modBtnHtml = ' <button style="font-size:9px;padding:1px 5px;background:rgba(255,50,50,.15);border:1px solid rgba(255,50,50,.3);border-radius:4px;color:#ff6644;cursor:pointer;margin-left:4px;" data-uid="' + escapeHtml(m.uid) + '" data-user="' + escapeHtml(m.user||'Guest') + '" onclick="modOpenActionOnUser(this.dataset.uid, this.dataset.user)">MOD</button>';
       }
       let msgContent = '';
       if (m.type === 'img' && m.text) {
