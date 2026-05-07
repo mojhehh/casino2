@@ -97,8 +97,9 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 .cup-ball{width:26px;height:26px;border-radius:50%;background:radial-gradient(circle at 32% 28%,#fff7d6 0%,#f0d77a 30%,#d4af37 60%,#7a5510 100%);box-shadow:0 0 14px rgba(212,175,55,.7),inset 0 -4px 6px rgba(0,0,0,.35);margin-top:-6px;opacity:0;transition:opacity .25s;}
 .cup-slot.disabled{pointer-events:none;opacity:.7;}
 
-#topNav{position:fixed;top:0;left:0;right:0;height:var(--nav-h);background:rgba(10,8,4,0.85);backdrop-filter:blur(22px) saturate(160%);-webkit-backdrop-filter:blur(22px) saturate(160%);
-  border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 10px;padding-left:max(10px,env(safe-area-inset-left));padding-right:max(10px,env(safe-area-inset-right));z-index:1000;gap:1px;animation:fadeInDown .4s ease both;}
+#topNav{position:fixed;top:0;left:0;right:0;height:calc(var(--nav-h) + env(safe-area-inset-top,0px));padding-top:env(safe-area-inset-top,0px);background:rgba(10,8,4,0.85);backdrop-filter:blur(22px) saturate(160%);-webkit-backdrop-filter:blur(22px) saturate(160%);
+  border-bottom:1px solid var(--border);display:flex;align-items:center;padding-left:max(10px,env(safe-area-inset-left));padding-right:max(10px,env(safe-area-inset-right));z-index:1000;gap:1px;animation:fadeInDown .4s ease both;box-sizing:border-box;}
+.game-panel,#gameCatalog{top:calc(var(--nav-h) + env(safe-area-inset-top,0px)) !important;}
 #topNav .logo{font-family:'Orbitron';font-weight:900;font-size:14px;
   background:linear-gradient(135deg,var(--gold),var(--gold3),var(--gold));background-size:200% auto;animation:shimmer 5s linear infinite;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;margin-right:6px;white-space:nowrap;flex-shrink:0;cursor:pointer;letter-spacing:1.5px;}
 .nav-cat{position:relative;flex-shrink:0;}
@@ -1654,6 +1655,7 @@ button.action-btn.primary{
 .new-badge{position:absolute;top:5px;right:5px;font-size:8px;background:linear-gradient(135deg,#f0d77a,#d4af37 50%,#b8860b);color:#1a1208;padding:2px 7px;border-radius:999px;font-weight:900;letter-spacing:.6px;font-family:'Orbitron';box-shadow:0 2px 8px rgba(212,175,55,.45),inset 0 1px 0 rgba(255,255,255,.35);text-shadow:none;border:1px solid rgba(255,235,170,.4);}
 
 .coverflow-rail{scrollbar-width:none;-ms-overflow-style:none;}
+.coverflow-rail.cf-hidden,.coverflow-rail.flat-grid.cf-hidden{display:none !important;}
 .coverflow-rail .catalog-card{will-change:transform,opacity;contain:layout style paint;backface-visibility:hidden;-webkit-backface-visibility:hidden;}
 .coverflow-rail.flat-grid .catalog-card{will-change:auto;contain:layout style;}
 .coverflow-rail::-webkit-scrollbar{display:none;}
@@ -2138,6 +2140,15 @@ document.addEventListener('keydown',function(e){ if(e.key==='Escape'){toggleNavD
         <button onclick="setTheme('forest')" class="theme-btn" data-theme="forest" style="padding:10px;border-radius:8px;border:2px solid var(--border);background:linear-gradient(135deg,#0a1f0a,#183a18);color:#00e676;cursor:pointer;font-size:12px;font-weight:700;">Forest</button>
         <button onclick="setTheme('crimson')" class="theme-btn" data-theme="crimson" style="padding:10px;border-radius:8px;border:2px solid var(--border);background:linear-gradient(135deg,#1a0505,#330a0a);color:#ff4444;cursor:pointer;font-size:12px;font-weight:700;"><svg class="ico ico-sm"><use href="#ico-fire"/></svg> Crimson</button>
         <button onclick="setTheme('gold')" class="theme-btn" data-theme="gold" style="padding:10px;border-radius:8px;border:2px solid var(--border);background:linear-gradient(135deg,#1a1500,#332a00);color:#ffd700;cursor:pointer;font-size:12px;font-weight:700;"><svg class="ico ico-sm"><use href="#ico-star"/></svg> Gold</button>
+      </div>
+      <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);">
+        <div style="font-size:11px;color:var(--text2);letter-spacing:1px;margin-bottom:8px;">CUSTOM COLORS</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+          <label style="display:flex;flex-direction:column;align-items:center;gap:4px;font-size:10px;color:var(--text2);">Background<input type="color" id="customBg" value="#070604" oninput="applyCustomTheme()" style="width:42px;height:32px;border:1px solid var(--border);border-radius:6px;background:transparent;cursor:pointer;padding:0;"></label>
+          <label style="display:flex;flex-direction:column;align-items:center;gap:4px;font-size:10px;color:var(--text2);">Accent<input type="color" id="customNeon" value="#ffd54a" oninput="applyCustomTheme()" style="width:42px;height:32px;border:1px solid var(--border);border-radius:6px;background:transparent;cursor:pointer;padding:0;"></label>
+          <label style="display:flex;flex-direction:column;align-items:center;gap:4px;font-size:10px;color:var(--text2);">Gold<input type="color" id="customGold" value="#ffd54a" oninput="applyCustomTheme()" style="width:42px;height:32px;border:1px solid var(--border);border-radius:6px;background:transparent;cursor:pointer;padding:0;"></label>
+        </div>
+        <button onclick="resetCustomTheme()" style="margin-top:10px;width:100%;padding:8px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);cursor:pointer;font-size:11px;letter-spacing:1px;">RESET TO PRESET</button>
       </div>
     </div>
 
@@ -4068,6 +4079,7 @@ onAuthStateChanged(auth, async (user) => {
       currentUsername = data.username || emailToUsername(user.email);
       if (data.balance != null) window._syncBalFromServer(safeNum(data.balance));
       if (data.stocks) window._loadStocks(data.stocks);
+      if (data.crypto && window._loadCrypto) window._loadCrypto(data.crypto);
       if (data.inventory) window._loadInventory(data.inventory);
       if (data.itemDemand) window._loadDemand(data.itemDemand);
       if (data.stats) window._loadStats(data.stats);
@@ -4171,7 +4183,13 @@ window._firebaseSave = () => {
     gameStats: window._getGameStats ? window._getGameStats() : null,
     achievements: window._getAchievements ? window._getAchievements() : null,
     prestige: window._getPrestige ? window._getPrestige() : null,
-    profilePicUrl: window._getProfilePicUrl ? window._getProfilePicUrl() : null
+    profilePicUrl: window._getProfilePicUrl ? window._getProfilePicUrl() : null,
+    stocks: window._getStocksData ? window._getStocksData() : null,
+    crypto: window._getCryptoData ? window._getCryptoData() : null,
+    inventory: window._getInventory ? window._getInventory() : null,
+    itemDemand: window._getDemand ? window._getDemand() : null,
+    dailyBonus: window._getDailyBonus ? window._getDailyBonus() : null,
+    tradeHistory: window._getTradeHistory ? window._getTradeHistory() : null
   };
   
   Object.keys(saveData).forEach(k => { if (saveData[k] == null) delete saveData[k]; });
@@ -5982,6 +6000,20 @@ function switchLB(category, btn) {
 
 function startLBAutoRefresh() {
   if (lbAutoInterval) clearInterval(lbAutoInterval);
+  if (window._lbLiveUnsub){ try{window._lbLiveUnsub();}catch(e){} window._lbLiveUnsub=null; }
+  if (window._fbOnValue) {
+    let _t=null;
+    window._lbLiveUnsub = window._fbOnValue('casino/players', () => {
+      const lbPanel = document.getElementById('leaderboardPanel');
+      if (!lbPanel || !lbPanel.classList.contains('active')) {
+        if (window._lbLiveUnsub){ try{window._lbLiveUnsub();}catch(e){} window._lbLiveUnsub=null; }
+        return;
+      }
+      if (_t) clearTimeout(_t);
+      _t = setTimeout(()=>loadLeaderboard(currentLBCategory), 700);
+    });
+    return;
+  }
   lbAutoInterval = setInterval(() => {
     const lbPanel = document.getElementById('leaderboardPanel');
     if (lbPanel && lbPanel.classList.contains('active')) {
@@ -6234,7 +6266,7 @@ function switchGame(game,btn){
   const targetPanel = document.getElementById(game+'Panel');
   if(targetPanel) targetPanel.classList.add('active'); else return;
   
-  const catalog = document.getElementById('gameCatalog'); if(catalog) catalog.style.display = 'none';
+  const catalog = document.getElementById('gameCatalog'); if(catalog){ catalog.style.display = 'none'; catalog.classList.add('cf-hidden'); }
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
   if(btn)btn.classList.add('active');
   if(game==='plinko'&&!plinkoInitialized)initPlinko();
@@ -6370,7 +6402,7 @@ window.goHomeWithZoom = function(){
   document.querySelectorAll('.game-panel').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
   const catalog = document.getElementById('gameCatalog');
-  if(catalog) catalog.style.display = 'flex';
+  if(catalog){ catalog.classList.remove('cf-hidden'); catalog.style.display = (casinoSettings && casinoSettings.homeLayout==='grid') ? 'grid' : 'flex'; }
   const hb=document.getElementById('homeBackBtn');
   if(hb)hb.style.display='none';
 };
@@ -15144,15 +15176,47 @@ function setTheme(name) {
   const t = THEMES[name];
   if (!t) return;
   casinoSettings.theme = name;
+  casinoSettings.customTheme = null;
   localStorage.setItem('casino_settings', JSON.stringify(casinoSettings));
   const root = document.documentElement;
   Object.entries(t).forEach(([k, v]) => {
     root.style.setProperty('--' + k.replace(/([A-Z])/g, m => '-' + m.toLowerCase()), v);
   });
-  
   document.querySelectorAll('.theme-btn').forEach(b => {
     b.style.borderColor = b.dataset.theme === name ? 'var(--neon)' : 'var(--border)';
   });
+}
+
+function _hexToRgb(hex){
+  const h = hex.replace('#','');
+  const n = parseInt(h.length===3 ? h.split('').map(c=>c+c).join('') : h, 16);
+  return [(n>>16)&255,(n>>8)&255,n&255];
+}
+function applyCustomTheme(){
+  const bg = (document.getElementById('customBg')||{}).value || '#070604';
+  const neon = (document.getElementById('customNeon')||{}).value || '#ffd54a';
+  const gold = (document.getElementById('customGold')||{}).value || neon;
+  const [nr,ng,nb] = _hexToRgb(neon);
+  const [br,bg2,bb] = _hexToRgb(bg);
+  const surface1 = `rgb(${Math.min(255,br+8)},${Math.min(255,bg2+6)},${Math.min(255,bb+4)})`;
+  const root = document.documentElement;
+  const vars = {
+    bg, surface1,
+    surface: `rgba(${nr},${ng},${nb},0.06)`,
+    surface2: `rgba(${nr},${ng},${nb},0.10)`,
+    border: `rgba(${nr},${ng},${nb},0.28)`,
+    text: '#f5f1e0', text2: 'rgba(255,255,255,0.55)',
+    neon, gold, green: '#3fd97f', red: '#ff3a4d'
+  };
+  Object.entries(vars).forEach(([k,v])=>root.style.setProperty('--'+k, v));
+  casinoSettings.customTheme = vars;
+  casinoSettings.theme = 'custom';
+  localStorage.setItem('casino_settings', JSON.stringify(casinoSettings));
+  document.querySelectorAll('.theme-btn').forEach(b => { b.style.borderColor = 'var(--border)'; });
+}
+function resetCustomTheme(){
+  casinoSettings.customTheme = null;
+  setTheme(casinoSettings.theme && THEMES[casinoSettings.theme] ? casinoSettings.theme : 'dark');
 }
 
 (function applySavedSettings() {
@@ -15171,7 +15235,12 @@ function setTheme(name) {
     document.body.classList.add('reduced-motion');
   }
   if (casinoSettings.theme && casinoSettings.theme !== 'dark') {
-    setTheme(casinoSettings.theme);
+    if (casinoSettings.theme === 'custom' && casinoSettings.customTheme) {
+      const root = document.documentElement;
+      Object.entries(casinoSettings.customTheme).forEach(([k,v])=>root.style.setProperty('--'+k,v));
+    } else {
+      setTheme(casinoSettings.theme);
+    }
   }
   setTimeout(applyHomeLayout, 200);
 })();
@@ -15623,6 +15692,17 @@ function cryptoSellAll(coinId) {
 }
 
 setTimeout(initLimitedCases, 1000);
+
+window._getCryptoData = () => {
+  if (!cryptoPortfolio || Object.keys(cryptoPortfolio).length === 0) return null;
+  return { portfolio: cryptoPortfolio };
+};
+window._loadCrypto = (data) => {
+  if (!data) return;
+  if (data.portfolio) cryptoPortfolio = data.portfolio;
+  else if (typeof data === 'object') cryptoPortfolio = data;
+  try { localStorage.setItem('casino_crypto', JSON.stringify(cryptoPortfolio)); } catch(e){}
+};
 </script>
 
 <div id="adminAnnounceBanner">
