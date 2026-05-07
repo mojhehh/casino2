@@ -1654,8 +1654,6 @@ button.action-btn.primary{
 .new-badge{position:absolute;top:5px;right:5px;font-size:8px;background:linear-gradient(135deg,#f0d77a,#d4af37 50%,#b8860b);color:#1a1208;padding:2px 7px;border-radius:999px;font-weight:900;letter-spacing:.6px;font-family:'Orbitron';box-shadow:0 2px 8px rgba(212,175,55,.45),inset 0 1px 0 rgba(255,255,255,.35);text-shadow:none;border:1px solid rgba(255,235,170,.4);}
 
 .coverflow-rail{scrollbar-width:none;-ms-overflow-style:none;}
-.coverflow-rail .catalog-card{will-change:transform,opacity;contain:layout style paint;backface-visibility:hidden;-webkit-backface-visibility:hidden;}
-.coverflow-rail.flat-grid .catalog-card{will-change:auto;contain:layout style;}
 .coverflow-rail::-webkit-scrollbar{display:none;}
 .coverflow-rail::before{content:'';position:absolute;left:0;top:0;bottom:0;width:14vw;pointer-events:none;background:linear-gradient(90deg,rgba(7,6,4,.95),rgba(7,6,4,0));z-index:5;}
 .coverflow-rail::after{content:'';position:absolute;right:0;top:0;bottom:0;width:14vw;pointer-events:none;background:linear-gradient(-90deg,rgba(7,6,4,.95),rgba(7,6,4,0));z-index:5;}
@@ -1962,7 +1960,6 @@ body.turbo *,body.turbo *::before,body.turbo *::after{
       <button class="login-btn secondary" id="authToggleBtn" onclick="authToggleMode()">CREATE ACCOUNT</button>
       <button class="login-btn secondary" style="margin-top:4px;border-color:rgba(255,255,255,0.15);color:rgba(255,255,255,0.4);font-family:'Inter',sans-serif;font-size:13px;letter-spacing:0;" onclick="authGuestMode()">Sign in later</button>
       <div class="login-error" id="authError"></div>
-      <div id="authDiag" style="display:none;"></div>
       <div class="login-toggle" id="authToggleText">Don't have an account? <a onclick="authToggleMode()">Sign up</a></div>
     </div>
   </div>
@@ -3872,7 +3869,7 @@ document.addEventListener('keydown',function(e){ if(e.key==='Escape'){toggleNavD
 
 <script type="module">
 import{initializeApp}from"https://www.gstatic.com/firebasejs/11.8.1/firebase-app.js";
-import{getFirestore,initializeFirestore,doc,collection,setDoc,getDoc,getDocs,updateDoc,deleteDoc,onSnapshot,query as fsQuery,orderBy,limit as fsLimit,addDoc,writeBatch,deleteField}from"https://www.gstatic.com/firebasejs/11.8.1/firebase-firestore.js";
+import{getFirestore,doc,collection,setDoc,getDoc,getDocs,updateDoc,deleteDoc,onSnapshot,query as fsQuery,orderBy,limit as fsLimit,addDoc,writeBatch,deleteField}from"https://www.gstatic.com/firebasejs/11.8.1/firebase-firestore.js";
 import{getAuth,createUserWithEmailAndPassword,signInWithEmailAndPassword,signOut,onAuthStateChanged}from"https://www.gstatic.com/firebasejs/11.8.1/firebase-auth.js";
 
 const firebaseConfig={
@@ -3885,7 +3882,7 @@ const firebaseConfig={
   measurementId:"G-492LC788QW"
 };
 const app=initializeApp(firebaseConfig);
-const db=initializeFirestore(app,{experimentalAutoDetectLongPolling:true});
+const db=getFirestore(app);
 const auth=getAuth(app);
 
 const _FLAT_MAP={'store/listings':'storeListings','store/sales':'storeSales','admin/eventChat':'adminEventChat','admin/eventPresence':'adminEventPresence','admin/playerReset':'adminPlayerReset','admin/playerGift':'adminPlayerGift'};
@@ -4028,33 +4025,6 @@ window._authSubmit = async (username, password, isRegister) => {
 
 window._authLogout = () => signOut(auth);
 
-window._diagnoseFirebase = async () => {
-  const out = [];
-  out.push('Project: ' + firebaseConfig.projectId);
-  out.push('Origin: ' + location.origin);
-  out.push('Online: ' + navigator.onLine);
-  out.push('---');
-  try {
-    const r = await fetch('https://firestore.googleapis.com/v1/projects/' + firebaseConfig.projectId + '/databases/(default)/documents/_ping/_x', {method:'GET'});
-    out.push('Firestore REST: HTTP ' + r.status + ' ' + (r.status===200||r.status===404?'✓ reachable':'✗'));
-  } catch(e) {
-    out.push('Firestore REST: BLOCKED (' + (e.message||e) + ')');
-    out.push('→ Adblocker or extension blocking firestore.googleapis.com');
-  }
-  try {
-    const t0 = Date.now();
-    await getDoc(doc(db, '_diagnostic', 'ping'));
-    out.push('Firestore SDK read: ✓ OK (' + (Date.now()-t0) + 'ms)');
-  } catch(e) {
-    out.push('Firestore SDK read: ✗ ' + (e.code || e.message));
-    if (String(e.code||e.message).includes('permission-denied')) {
-      out.push('→ Firestore RULES are blocking reads. Set rules to allow read,write: if true; in test mode.');
-    } else if (String(e.code||e.message).includes('unavailable')) {
-      out.push('→ Network blocking. Try mobile data, disable adblock, or different network.');
-    }
-  }
-  return out.join('\n');
-};
 
 onAuthStateChanged(auth, async (user) => {
   if (user) {
@@ -5026,8 +4996,7 @@ window._fbGet = async (path) => {
     const val = r.field.split('.').reduce((o, k) => o && o[k], data);
     return _wrapSnap(val !== undefined ? val : null, r.field.split('.').pop());
   }
-  const _d = snap.data();
-  return _wrapSnap((_d && typeof _d==='object' && Object.keys(_d).length===1 && '_v' in _d) ? _d._v : _d, snap.id);
+  return _wrapSnap(snap.data(), snap.id);
 };
 
 window._fbUpdate = async (path, data) => {
@@ -5682,16 +5651,6 @@ function authGuestMode() {
   }
 })();
 
-async function diagnoseFirebase(){
-  const out = document.getElementById('authDiag');
-  if(out){ out.textContent = 'Testing…'; }
-  try{
-    const r = await window._diagnoseFirebase();
-    if(out) out.textContent = r;
-  }catch(e){
-    if(out) out.textContent = 'Diagnostic failed: ' + (e.message||e);
-  }
-}
 
 function authToggleMode() {
   authIsRegister = !authIsRegister;
@@ -14939,7 +14898,7 @@ async function modRenderPanel() {
             <button class="mod-panel-action red" onclick="modUnmuteAll()">UNMUTE ALL</button>
           </div>
         </div>
-        ${(window._currentUsername||'').toLowerCase()==='mojheh' ? '<div style="margin-top:20px;border-top:1px solid var(--border);padding-top:16px;"><div style="font-size:11px;color:var(--text2);letter-spacing:1px;margin-bottom:8px;">CHAT IMAGE CONTROL</div><div style="display:flex;gap:8px;align-items:center;"><div style="flex:1;font-size:13px;color:var(--text);">Chat Images: <b id="modImgStatusText" style="color:'+(window._chatImagesDisabled?'var(--red)':'var(--green)')+';">'+(window._chatImagesDisabled?'DISABLED':'ENABLED')+'</b></div><button class="mod-panel-action '+(window._chatImagesDisabled?'green':'red')+'" onclick="modToggleChatImages()">'+(window._chatImagesDisabled?'ENABLE IMAGES':'DISABLE IMAGES')+'</button></div></div>' : ''}`;
+        ${(window._currentUsername||'').toLowerCase()==='mojheh' ? '<div style="margin-top:20px;border-top:1px solid var(--border);padding-top:16px;"><div style="font-size:11px;color:var(--text2);letter-spacing:1px;margin-bottom:8px;">🖼️ CHAT IMAGE CONTROL</div><div style="display:flex;gap:8px;align-items:center;"><div style="flex:1;font-size:13px;color:var(--text);">Chat Images: <b id="modImgStatusText" style="color:'+(window._chatImagesDisabled?'var(--red)':'var(--green)')+';">'+(window._chatImagesDisabled?'DISABLED':'ENABLED')+'</b></div><button class="mod-panel-action '+(window._chatImagesDisabled?'green':'red')+'" onclick="modToggleChatImages()">'+(window._chatImagesDisabled?'ENABLE IMAGES':'DISABLE IMAGES')+'</button></div></div>' : ''}`;
     }
   } catch(e) {
     container.innerHTML = '<div class="mod-panel-empty">Error: ' + (e.message || 'Unknown') + '</div>';
@@ -17679,21 +17638,18 @@ function adminSetSelfBalance() {
 
   function paint(){
     if(isGrid()) return;
-    var railW=rail.clientWidth;
-    var halfW=railW/2;
-    var scrollL=rail.scrollLeft;
+    var rect=rail.getBoundingClientRect();
+    var cx=rect.left+rect.width/2;
     var nearest=-1, nearestDist=1e9;
-    var denom=railW*0.42;
     for(var i=0;i<cards.length;i++){
-      var c=cards[i];
-      var cCenter=c.offsetLeft + c.offsetWidth/2;
-      var d=cCenter - (scrollL + halfW);
-      var ad=d<0?-d:d;
+      var c=cards[i], r=c.getBoundingClientRect();
+      var d=(r.left+r.width/2)-cx;
+      var ad=Math.abs(d);
       if(ad<nearestDist){nearestDist=ad;nearest=i;}
-      var norm=d/denom; if(norm<-1)norm=-1; else if(norm>1)norm=1;
-      var a=norm<0?-norm:norm;
+      var norm=Math.max(-1,Math.min(1,d/(rect.width*0.42)));
+      var a=Math.abs(norm);
       var rotY=-norm*55, tz=-a*260, sc=1-a*0.28, tx=-norm*30, op=1-a*0.35;
-      c.style.transform='translate3d('+tx+'px,0,'+tz+'px) rotateY('+rotY+'deg) scale('+sc+')';
+      c.style.transform='translateX('+tx+'px) translateZ('+tz+'px) rotateY('+rotY+'deg) scale('+sc+')';
       c.style.opacity=op.toFixed(3);
       c.style.zIndex=String(1000-Math.round(a*1000));
     }
