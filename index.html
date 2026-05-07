@@ -2006,7 +2006,7 @@ body.turbo *,body.turbo *::before,body.turbo *::after{
     <button id="notifBell" onclick="toggleNotifPanel(event)" title="Notifications" style="padding:5px 8px;border:none;border-radius:6px;cursor:pointer;background:var(--surface2);color:var(--text);font-size:13px;transition:all .2s;"><svg class="ico"><use href="#ico-bell"/></svg><span id="notifBadge"></span></button>
     <button class="daily-bonus-btn" id="dailyBonusBtn" onclick="claimDailyBonus()" style="font-size:11px;padding:4px 10px;"><svg class="ico ico-sm"><use href="#ico-gift"/></svg> DAILY</button>
     <div class="bal">$<span id="balText">1000.00</span></div>
-    <button class="add-btn" onclick="addMoney(100)"><svg class="ico ico-sm"><use href="#ico-money"/></svg> PITY $100</button>
+    <button class="add-btn" onclick="addMoney(500)"><svg class="ico ico-sm"><use href="#ico-money"/></svg> PITY $500</button>
     <div class="user-info">
       <div class="user-avatar" id="userAvatar"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><defs><linearGradient id="avG0" x1="0" x2="1"><stop offset="0" stop-color="#f0d77a"/><stop offset=".55" stop-color="#d4af37"/><stop offset="1" stop-color="#7a5510"/></linearGradient></defs><circle cx="50" cy="50" r="48" fill="url(#avG0)"/><text x="50" y="58" font-family="Orbitron,Inter,sans-serif" font-weight="900" font-size="48" fill="#1a1208" text-anchor="middle">G</text></svg></div>
       <span class="user-name" id="userNameDisplay">...</span>
@@ -5597,19 +5597,10 @@ function updateBalDisplay(){
         setTimeout(tryPity, 1000); return;
       }
       if(balance<=0){
-        const today=Math.floor(Date.now()/86400000);
-        if(today!==_pityClaimsDay){_pityClaimsDay=today;_pityClaimsToday=0;}
-        if(_pityClaimsToday>=3){
-          showToast('Out of money! Daily pity used up — come back tomorrow.',false);
-          window._pityOffered=false; return;
-        }
-        _pityClaimsToday++;
-        _lastAddMoney=Date.now();
-        balance+=25;
-        _balMark();
+        balance+=100;
         updateBalDisplay();
         firebaseSave();
-        showToast(_ico('money','ico-sm')+' Pity bonus: $25 ('+_pityClaimsToday+'/3 today)',true);
+        showToast(_ico('money','ico-sm')+' Pity bonus! Here\'s $100 to get back on your feet.',true);
       }
       window._pityOffered=false;
     };
@@ -5618,24 +5609,16 @@ function updateBalDisplay(){
 }
 
 let _lastAddMoney=0;
-let _pityClaimsToday=0;
-let _pityClaimsDay=0;
 function addMoney(amt){
   amt=safeNum(amt);
   if(amt<=0)return;
-  if(amt>500){amt=500;}
-  if(balance>50){showToast('Pity money is only for broke players (balance must be ≤$50)!',false);return;}
-  const today=Math.floor(Date.now()/86400000);
-  if(today!==_pityClaimsDay){_pityClaimsDay=today;_pityClaimsToday=0;}
-  if(_pityClaimsToday>=3){showToast('Daily pity limit reached (3/day) — play to earn more!',false);return;}
-  if(Date.now()-_lastAddMoney<300000){const left=Math.ceil((300000-(Date.now()-_lastAddMoney))/1000);showToast('Pity cooldown: '+Math.ceil(left/60)+'m '+(left%60)+'s',false);return;}
+  if(balance>100){showToast('Pity money is only for broke players!',false);return;}
+  if(Date.now()-_lastAddMoney<10000){showToast('Cooldown! Wait 10s',false);return;}
   _lastAddMoney=Date.now();
-  _pityClaimsToday++;
   balance+=amt;
-  _balMark();
   updateBalDisplay();
   firebaseSave();
-  showToast('+$'+amt+' (pity '+_pityClaimsToday+'/3 today)',true);
+  showToast('+$'+amt+' (pity money)',true);
 }
 let _fbSaveTimer=null, _fbSaveDirty=false;
 function _balIntegrityCheck(){
