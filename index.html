@@ -1672,26 +1672,29 @@ button.action-btn.primary{
 
 .coverflow-rail{scrollbar-width:none;-ms-overflow-style:none;}
 .coverflow-rail.cf-hidden,.coverflow-rail.flat-grid.cf-hidden{display:none !important;}
-.coverflow-rail .catalog-card{will-change:transform,opacity;contain:layout style paint;backface-visibility:hidden;-webkit-backface-visibility:hidden;}
-.coverflow-rail.flat-grid .catalog-card{will-change:auto;contain:layout style;}
+/* contain:paint clips the 3D card during rotation - causes black box artifacts. Use contain:style only */
+.coverflow-rail .catalog-card{will-change:transform,opacity;contain:style;-webkit-backface-visibility:hidden;backface-visibility:hidden;-webkit-transform-style:preserve-3d;transform-style:preserve-3d;}
+.coverflow-rail.flat-grid .catalog-card{will-change:auto;contain:layout style;transform:none !important;opacity:1 !important;z-index:auto !important;}
 .coverflow-rail::-webkit-scrollbar{display:none;}
-.coverflow-rail::before{content:'';position:absolute;left:0;top:0;bottom:0;width:14vw;pointer-events:none;background:linear-gradient(90deg,rgba(7,6,4,.95),rgba(7,6,4,0));z-index:5;}
-.coverflow-rail::after{content:'';position:absolute;right:0;top:0;bottom:0;width:14vw;pointer-events:none;background:linear-gradient(-90deg,rgba(7,6,4,.95),rgba(7,6,4,0));z-index:5;}
+/* Edge fades: use pointer-events:none, fixed position relative to wrapper, z-index above cards */
+.coverflow-rail::before{content:'';position:absolute;left:0;top:0;bottom:0;width:14vw;pointer-events:none;background:linear-gradient(90deg,rgba(7,6,4,.97),rgba(7,6,4,0));z-index:1100;will-change:auto;}
+.coverflow-rail::after{content:'';position:absolute;right:0;top:0;bottom:0;width:14vw;pointer-events:none;background:linear-gradient(-90deg,rgba(7,6,4,.97),rgba(7,6,4,0));z-index:1100;will-change:auto;}
 .coverflow-rail .catalog-card{
   flex:0 0 240px !important;
   width:240px !important;max-width:240px !important;
   height:320px !important;
   margin:0 -50px !important;
-  transform-style:preserve-3d;
   transition:box-shadow .35s ease,border-color .35s ease,filter .35s ease;
-  will-change:transform,filter;
+  will-change:transform,opacity;
   font-size:18px !important;
   border-radius:24px !important;
   animation:none !important;
-  background:linear-gradient(160deg,rgba(28,21,9,0.96) 0%,rgba(10,7,3,0.98) 100%) !important;
+  /* no backdrop-filter on cards - kills 3D compositing */
+  background:linear-gradient(160deg,rgba(28,21,9,0.97) 0%,rgba(10,7,3,0.99) 100%) !important;
   border:1.5px solid rgba(212,175,55,.32) !important;
   box-shadow:0 18px 50px rgba(0,0,0,.7),inset 0 1px 0 rgba(240,215,122,.08) !important;
   cursor:grab;
+  isolation:isolate;
 }
 .coverflow-rail .catalog-card:active{cursor:grabbing;}
 .coverflow-rail .catalog-card .icon{font-size:72px !important;margin-bottom:14px !important;}
@@ -17857,8 +17860,14 @@ function adminSetSelfBalance() {
       if(ad<nearestDist){nearestDist=ad;nearest=i;}
       var norm=d/denom; if(norm<-1)norm=-1; else if(norm>1)norm=1;
       var a=norm<0?-norm:norm;
-      var rotY=-norm*55, tz=-a*260, sc=1-a*0.28, tx=-norm*30, op=1-a*0.35;
-      c.style.transform='translate3d('+tx+'px,0,'+tz+'px) rotateY('+rotY+'deg) scale('+sc+')';
+      /* Use only translate3d + scale — no rotateY, no negative tz.
+         rotateY requires preserve-3d which kills Safari compositing.
+         Negative tz causes background rectangles bleeding through at edges. */
+      var sc=1-a*0.30;
+      var tx=-norm*28;
+      var ty=a*12; /* slight vertical drop for side cards */
+      var op=1-a*0.38;
+      c.style.transform='translate3d('+tx.toFixed(1)+'px,'+ty.toFixed(1)+'px,0) scale('+sc.toFixed(4)+')';
       c.style.opacity=op.toFixed(3);
       c.style.zIndex=String(1000-Math.round(a*1000));
     }
