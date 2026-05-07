@@ -1,5 +1,3 @@
-.claude-chat.log
-.claude/
 *.log
 *.bak
 _emoji_audit.js
