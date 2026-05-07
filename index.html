@@ -35,6 +35,10 @@ html,body{height:100%;height:100dvh;height:100svh;overflow:hidden;overflow-x:hid
 *::-webkit-scrollbar-corner{background:transparent;}
 .coverflow-rail::-webkit-scrollbar{display:none;}
 body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse at 20% 0%,rgba(212,175,55,0.09) 0%,transparent 55%),radial-gradient(ellipse at 80% 100%,rgba(184,134,11,0.06) 0%,transparent 55%),radial-gradient(ellipse at 50% 50%,rgba(15,11,4,0.5) 0%,transparent 70%);pointer-events:none;z-index:0;}
+body.reduced-motion *,body.reduced-motion *::before,body.reduced-motion *::after{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.05ms !important;}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.05ms !important;scroll-behavior:auto !important;}
+}
 
 @keyframes fadeInUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
 @keyframes fadeInDown{from{opacity:0;transform:translateY(-24px)}to{opacity:1;transform:translateY(0)}}
@@ -5647,6 +5651,11 @@ function firebaseSaveNow(){
 }
 
 function firebaseSaveBet(betAmt){
+  if(!Number.isFinite(betAmt) || betAmt <= 0){
+    if(Number.isFinite(betAmt) && betAmt>0) balance += betAmt;
+    updateBalDisplay();
+    showToast('Invalid bet \u2014 refunded.', false); return false;
+  }
   if(!navigator.onLine){
     if(betAmt>0){balance+=betAmt;updateBalDisplay();}
     showToast('Lost connection \u2014 bet refunded. Reconnect to keep playing.',false); return false;
@@ -5914,6 +5923,10 @@ let gameStats = {
 let dailyBonusData = { lastClaimed: 0, streak: 0 };
 
 function checkMaxBet(bet, game) {
+  if (!Number.isFinite(bet) || bet <= 0) {
+    showToast('Invalid bet amount', false);
+    return false;
+  }
   if (!navigator.onLine) {
     showToast('You\u2019re offline \u2014 reconnecting will sync your balance. Bet blocked until online.', false);
     return false;
@@ -12362,8 +12375,10 @@ window._onChatMessages = function(msgs) {
   });
 
   if (wasAtBottom || !chatOpen) container.scrollTop = container.scrollHeight;
-  if (!chatOpen && msgs.length > 0) {
-    chatUnread = Math.min(chatUnread + 1, 99);
+  const _prevCount = window._chatLastCount || 0;
+  window._chatLastCount = msgs.length;
+  if (!chatOpen && msgs.length > _prevCount) {
+    chatUnread = Math.min(chatUnread + (msgs.length - _prevCount), 99);
     updateChatBadge();
   }
 };
