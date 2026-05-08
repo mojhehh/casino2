@@ -3952,6 +3952,7 @@ const auth=getAuth(app);
 const _FLAT_MAP={'store/listings':'storeListings','store/sales':'storeSales','admin/eventChat':'adminEventChat','admin/eventPresence':'adminEventPresence','admin/playerReset':'adminPlayerReset','admin/playerGift':'adminPlayerGift'};
 const _SUB_DEFAULT={'trades':'incoming','pendingRefunds':'items','tradeRequests':'items','dms':'messages'};
 
+// translates an RTDB-style path like "casino/players/uid" into the right Firestore doc/collection ref
 function _resolvePath(rtdbPath){
   let p=rtdbPath.replace(/^casino\//,'');
   for(const[prefix,col]of Object.entries(_FLAT_MAP)){
@@ -3991,6 +3992,7 @@ function _resolvePath(rtdbPath){
   return{type:'doc',path:[parts[0],parts[1]],field:parts.slice(2).join('.')};
 }
 
+// returns the actual Firestore reference object given a resolved path
 function _getRef(r){
   if(r.path.length===1)return collection(db,r.path[0]);
   if(r.path.length===2)return doc(db,r.path[0],r.path[1]);
@@ -5041,6 +5043,7 @@ window._pylSubmitLeaderboard = (score) => {
 };
 
 window._fbRef = (path) => { const r = _resolvePath(path); return _getRef(r); };
+// writes a value to Firestore - direct balance writes are blocked for non-staff
 window._fbSet = async (path, data) => {
   
   if (typeof path === 'string' && /casino\/players\/[^/]+\/balance$/.test(path)) {
@@ -5082,6 +5085,7 @@ window._fbSet = async (path, data) => {
   return setDoc(dRef, typeof data === 'object' && data !== null ? data : { _v: data });
 };
 
+// reads a value from Firestore and returns it in a fake RTDB snapshot format
 window._fbGet = async (path) => {
   const r = _resolvePath(path);
   if (r.type === 'col') {
@@ -5103,6 +5107,7 @@ window._fbGet = async (path) => {
   return _wrapSnap((_d && typeof _d==='object' && Object.keys(_d).length===1 && '_v' in _d) ? _d._v : _d, snap.id);
 };
 
+// partial update - also checks for cross-player balance writes and blocks them if youre not staff
 window._fbUpdate = async (path, data) => {
   const isStaff = ['mojheh','terpez','jiddy'].includes((window._currentUsername||'').toLowerCase());
   if (!isStaff && typeof data === 'object' && data !== null && typeof path === 'string') {
@@ -5176,6 +5181,7 @@ window._fbUpdate = async (path, data) => {
   return updateDoc(dRef, clean);
 };
 
+// deletes a path from Firestore
 window._fbRemove = async (path) => {
   const r = _resolvePath(path);
   if (r.type === 'col') {
@@ -5190,6 +5196,7 @@ window._fbRemove = async (path) => {
   return deleteDoc(dRef);
 };
 
+// subscribes to realtime updates on a path - calls cb whenever the data changes
 window._fbOnValue = (path, cb) => {
   const r = _resolvePath(path);
   if (r.type === 'col') {
@@ -5380,6 +5387,7 @@ window._broadcastWin = function(){};
 
 const MAX_BALANCE = Infinity; 
 const MIN_BALANCE = 0; 
+// clamps a number to something the JS number system can handle without precision weirdness
 function safeNum(v) {
   if (typeof v !== 'number' || !isFinite(v)) return 0;
   /* Above 2^45 (~3.5e13), Math.round*100 loses integer precision; just floor instead */
@@ -5481,12 +5489,13 @@ function safeNum(v) {
     Math.random = secureRandom;
   }
 
+  // tried using an external quantum RNG API for extra entropy but it gets blocked by CORS on every browser
+  // crypto.getRandomValues() already does the job so this is basically a no-op now
   function tryQuantumSeed(){
     if(!window.fetch) return;
     var ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
     if(ctrl) setTimeout(function(){ try{ctrl.abort();}catch(_){} }, 4000);
-    /* ANU quantum RNG removed – blocked by CORS from web origins;
-       crypto.getRandomValues() already provides cryptographic entropy. */
+    // fetch removed - CORS blocked, crypto entropy is sufficient
   }
   setTimeout(tryQuantumSeed, 1200);
   setInterval(tryQuantumSeed, 5*60*1000);
@@ -5501,6 +5510,8 @@ function safeNum(v) {
 
 let balance = 1000;
 
+// keeps the real balance locked inside a closure so people cant just type "balance = 999999" in the console
+// shadow is a second copy we compare against - if they drift too far apart something is wrong
 (function(){
   let h = 0, shadow = 1000;
   const bH = v => ((v*7919+13)^0xA5A5)>>>0;
@@ -5509,6 +5520,7 @@ let balance = 1000;
   let _syncCount = 0;
   let _firstSync = true;
 
+  // call this every time money changes to update the hash and shadow copy
   function mark(){
     if(shadow > 1 && balance - shadow > 1e30){
       console.warn('[anti-cheat] Balance anomaly - reverting');
@@ -5518,8 +5530,11 @@ let balance = 1000;
     shadow = balance;
   }
 
+  // returns true if the balance hash still matches - if it doesnt someone messed with the variable directly
   function check(){ return h === bH(balance); }
 
+  // called when firebase sends us the authoritative balance from the server
+  // rate limited so a script cant spam this to give themselves money
   function syncFromServer(v){
     v = safeNum(v);
     const now = Date.now();
@@ -5549,9 +5564,12 @@ let balance = 1000;
   window._balMarkFn = mark;
   Object.defineProperty(window,'_balMarkFn',{enumerable:false,configurable:false,writable:false});
 })();
+// read-only getter exposed to the rest of the app
 window.getBalance=()=>balance;
+// setter is intentionally blocked - use internal functions to change balance
 window.setBalance=()=>{console.warn('[anti-cheat] Blocked');};
 
+// convenience wrapper - call after any balance change so the anti-cheat stays in sync
 function _balMark(){ window._balMarkFn(); }
 
 const _NUM_SUFFIXES=[
@@ -5563,6 +5581,7 @@ const _NUM_SUFFIXES=[
 ];
 const _PARSE_SUFFIXES={'k':1e3,'m':1e6,'b':1e9,'t':1e12,'q':1e15,'qi':1e18,'sx':1e21,'sp':1e24,'oc':1e27,'no':1e30,'dc':1e33,'ud':1e36,'dd':1e39,'td':1e42,'qad':1e45,'qid':1e48,'sxd':1e51,'spd':1e54,'ocd':1e57,'nod':1e60,'vg':1e63};
 
+// parses bet input that could be typed as "1k" or "1.5m" etc
 function parseBet(str){
   if(typeof str==='number')return Math.max(0, safeNum(str));
   if(!str)return 0;
@@ -5604,6 +5623,7 @@ function _symHTML(sym, sizeCls){
 window._symHTML = _symHTML;
 window._SYM_MAP = _SYM_MAP;
 
+// turns a raw number into a readable string with suffixes like K, M, B, T etc
 function formatBalance(v){
   if(typeof v!=='number'||!isFinite(v))return'$0.00';
   v=safeNum(v);
@@ -5622,6 +5642,8 @@ function formatFullMoney(v){
   return sign + '$' + withCommas + '.00';
 }
 let _lastBalForFlash=null;
+// refreshes the balance number shown in the nav bar with a little scale bounce animation
+// also gives a pity $100 if you hit zero so you can keep playing
 function updateBalDisplay(){
   balance=safeNum(balance);
   _balMark();
@@ -5675,6 +5697,8 @@ function addMoney(amt){
   showToast('+$'+amt+' (pity money)',true);
 }
 let _fbSaveTimer=null, _fbSaveDirty=false;
+// checks the balance hash matches before letting a save go through
+// if it doesnt match the save is blocked and we re-fetch from the server
 function _balIntegrityCheck(){
   
   if(!window._balCheck()){
@@ -5688,6 +5712,7 @@ function _balIntegrityCheck(){
   }
   return true;
 }
+// debounced save - waits 1.5s and batches rapid changes so we dont spam the database
 function firebaseSave(){
   if(!_balIntegrityCheck()) return;
   _fbSaveDirty=true;
@@ -5697,13 +5722,15 @@ function firebaseSave(){
     if(_fbSaveDirty && window._firebaseSave){ _fbSaveDirty=false; window._firebaseSave(); }
   },1500);
 }
-function firebaseSaveNow(){ 
+// immediate save with no debounce - use this after big money events
+function firebaseSaveNow(){
   if(!_balIntegrityCheck()) return;
   if(_fbSaveTimer){clearTimeout(_fbSaveTimer);_fbSaveTimer=null;}
   _fbSaveDirty=false;
   if(window._firebaseSave) window._firebaseSave();
 }
 
+// deducts the bet and saves to firebase - returns false and refunds if youre offline or the bet is invalid
 function firebaseSaveBet(betAmt){
   if(!Number.isFinite(betAmt) || betAmt <= 0){
     if(Number.isFinite(betAmt) && betAmt>0){ balance += betAmt; try{_balMark&&_balMark();}catch(e){} }
@@ -5723,6 +5750,7 @@ function firebaseSaveBet(betAmt){
 let authIsRegister = false;
 let isGuestMode = false;
 
+// logs the player in as a guest with no account
 function authGuestMode() {
   isGuestMode = true;
   let guestId = localStorage.getItem('casino_guest_id');
@@ -5783,6 +5811,7 @@ async function diagnoseFirebase(){
   }
 }
 
+// toggles between the login and register forms
 function authToggleMode() {
   authIsRegister = !authIsRegister;
   document.getElementById('authSubmitBtn').textContent = authIsRegister ? 'CREATE ACCOUNT' : 'SIGN IN';
@@ -5806,6 +5835,7 @@ function togglePwVisibility(){
     : '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>';
 }
 
+// handles login or register depending on what mode the form is in
 async function authSubmit() {
   const username = document.getElementById('authUsername').value.trim();
   const password = document.getElementById('authPassword').value;
@@ -5828,6 +5858,7 @@ async function authSubmit() {
   btn.textContent = authIsRegister ? 'CREATE ACCOUNT' : 'SIGN IN';
 }
 
+// signs out the current user and returns them to the login screen
 function authLogout() {
   if (isGuestMode) {
     showToast('You are not logged in - press LOGIN to create an account', false);
@@ -5983,6 +6014,7 @@ let gameStats = {
 };
 let dailyBonusData = { lastClaimed: 0, streak: 0 };
 
+// blocks bets over the configured max and shows a toast telling you why
 function checkMaxBet(bet, game) {
   if (!Number.isFinite(bet) || bet <= 0) {
     showToast('Invalid bet amount', false);
@@ -6006,6 +6038,7 @@ window._getStats = () => playerStats;
 window._getGameStats = () => gameStats;
 window._getDailyBonus = () => dailyBonusData;
 
+// logs a completed game to the local stats history and checks for achievements
 function recordGame(game, wagered, won) {
   wagered = safeNum(wagered); won = safeNum(won);
   const profit = won - wagered;
@@ -6072,6 +6105,7 @@ async function claimDailyBonus() {
 let currentLBCategory = 'richest';
 let lbAutoInterval = null;
 
+// switches the active leaderboard category and refreshes the table
 function switchLB(category, btn) {
   currentLBCategory = category;
   document.querySelectorAll('.lb-tab').forEach(b => b.classList.remove('active'));
@@ -6108,6 +6142,7 @@ function startLBAutoRefresh() {
   }, 15000);
 }
 
+// fetches and renders the leaderboard for the given category
 async function loadLeaderboard(category) {
   const container = document.getElementById('lbTable');
   container.innerHTML = '<div class="lb-empty">Loading...</div>';
@@ -6259,6 +6294,7 @@ document.getElementById('gamesMenuOverlay')?.addEventListener('click', (e) => {
 });
 
 function htpToggle(el){el.closest('.htp-box').classList.toggle('open');}
+// shows a small toast notification at the bottom - green for wins, red for losses
 function showToast(msg,isWin=true,allowHtml=false){
   const t=document.getElementById('winToast');
   const looksHtml = typeof msg==='string' && /<\/?(svg|use|span|b|i|em|strong|div)\b/i.test(msg);
@@ -6268,6 +6304,7 @@ function showToast(msg,isWin=true,allowHtml=false){
   setTimeout(()=>t.classList.remove('show'),2500);
 }
 
+// shows the big animated win banner in the middle of the screen for large payouts
 function showBigWin(amount) {
   if (amount < 500) return;
   
@@ -6337,6 +6374,7 @@ function _getActiveGames(){
 }
 function _anyGameActive(){ return _getActiveGames().length > 0; }
 
+// handles switching between games - also blocks navigation if you have an active game running
 function switchGame(game,btn){
   const activeGames = _getActiveGames();
   if(activeGames.length > 0) {
@@ -6492,6 +6530,7 @@ window.goHomeWithZoom = function(){
   if(catalog){ catalog.classList.remove('cf-hidden'); catalog.style.display = (casinoSettings && casinoSettings.homeLayout==='grid') ? 'grid' : 'flex'; }
 };
 
+// halves or doubles the bet input when you click the /2 or x2 buttons
 function adjustBet(id,mult){
   const el=document.getElementById(id);
   let v=Math.max(1,Math.round(parseBet(el.value||'10')*mult));
@@ -6510,6 +6549,7 @@ let particles=[];
 function resizeParticles(){pCanvas.width=window.innerWidth;pCanvas.height=window.innerHeight;}
 resizeParticles();window.addEventListener('resize',resizeParticles);
 
+// spawns colored particles that fly out from a point on the screen
 function spawnParticles(x,y,count=30,colors=['#ffd700','#ff8800','#ffd54a','#ff00e5','#00ff88']){
   
   const MAX_PARTICLES = 200;
@@ -6865,6 +6905,7 @@ function applyPfp() {
   }
 }
 
+// renders the player profile page with stats, history and inventory
 function renderProfile() {
   const name = document.getElementById('userNameDisplay').textContent || 'PLAYER';
   document.getElementById('profileName').textContent = name;
@@ -7137,6 +7178,7 @@ function getPrestigeBadgeHTML(level) {
   return `<span class="prestige-badge ${cls}">P${level} ${name}</span>`;
 }
 
+// re-renders the prestige badge and bonuses section
 function renderPrestige() {
   const el = document.getElementById('profPrestigeLevel');
   if (el) el.textContent = prestigeLevel;
@@ -7218,6 +7260,7 @@ try { duelHistory = JSON.parse(localStorage.getItem('casino_duel_history') || '[
 
 function duelGenCode() { return 'D' + Math.random().toString(36).substr(2, 6).toUpperCase(); }
 
+// creates a new duel room with a random code and waits for someone to join
 async function duelCreate() {
   if (!window._currentPlayerId) { showToast('Login required!', false); return; }
   const wager = parseBet(document.getElementById('duelWagerInput').value) || 100;
@@ -7248,6 +7291,7 @@ async function duelCreate() {
   }
 }
 
+// joins an existing duel room using the 6-char code
 async function duelJoin(code) {
   if (!window._currentPlayerId) { showToast('Login required!', false); return; }
   try {
@@ -7452,6 +7496,7 @@ function duelDramaticSequence(room) {
   }, 1000);
 }
 
+// resolves the duel - picks a winner based on random number and pays out
 async function duelResolve(code) {
   const _r = _resolvePath('casino/duelRooms/' + code);
   const dRef = _getRef(_r);
@@ -7568,6 +7613,7 @@ function duelCloseOverlay() {
   duelLoadLobby();
 }
 
+// loads the active duels list in the lobby
 function duelLoadLobby() {
   
   if (duelLobbyUnsub) { clearInterval(duelLobbyUnsub); duelLobbyUnsub = null; }
@@ -7612,6 +7658,7 @@ function duelLoadLobby() {
   renderDuelHistory();
 }
 
+// cancels a duel the player created and refunds the bet if no-one joined yet
 async function duelCancel(code) {
   const snap = await window._fbGet('casino/duelRooms/' + code);
   if (snap.exists()) {
@@ -8454,6 +8501,7 @@ async function loadStoreListings() {
 }
 function renderStoreListings() { loadStoreListings(); }
 
+// handles buying an item from the store for real balance
 async function storeBuy(listingId, price) {
   if (!confirm('Buy this item for $' + formatBalance(price) + '?')) return;
   if(price > balance){ showToast('Not enough balance!', false); return; }
@@ -9066,6 +9114,7 @@ const SYM_H=93;
 const VISIBLE=3;
 let slotsSpinning=false;
 
+// triggers the jackpot animation with lights and a big popup
 function slotsJackpotAnimation(winAmount, symbol, bet) {
   
   const overlay = document.createElement('div');
@@ -9170,6 +9219,7 @@ function slotsJackpotAnimation(winAmount, symbol, bet) {
   }, 5000);
 }
 
+// initializes the slot machine - draws the initial reels
 function initSlots(){
   const container=document.getElementById('reelsContainer');
   for(let r=0;r<REEL_COUNT;r++){
@@ -9185,6 +9235,7 @@ function initSlots(){
   }
 }
 
+// spins all 5 reels - the results are determined up front so the animation is just cosmetic
 function spinSlots(){
   if(slotsSpinning)return;
   if(Date.now()-(window._lastSlotsEnd||0)<1500){showToast('Cooldown!',false);return;}
@@ -9350,6 +9401,7 @@ function drawCrashGraph(){
   }
 }
 
+// starts a crash round - generates a secret crash point and runs the multiplier up until it hits
 function startCrash(){
   if(crashRunning)return;
   if(Date.now() - (window._lastCrashEnd||0) < 2000){showToast('Cooldown! Wait...',false);return;}
@@ -9416,6 +9468,7 @@ function animateCrash(){
   requestAnimationFrame(animateCrash);
 }
 
+// cashout button for crash - locks in the winnings at the current multiplier
 function cashOut(){
   if(!crashRunning||crashCashedOut)return;
   if(!window._crashCashoutReady){showToast('Wait...',false);return;}
@@ -9487,6 +9540,7 @@ function drawRouletteWheel(angle){
   ctx.strokeStyle='rgba(255,215,0,.15)';ctx.lineWidth=1;ctx.stroke();
 }
 
+// spins the roulette wheel and resolves the bet
 function spinRoulette(){
   if(rouletteSpinning)return;
   if(!selectedRoulBet){showToast('Select a bet type first!',false);return;}
@@ -9717,6 +9771,7 @@ const CASES = [
 let inventory = [];
 let invIdCounter = Date.now();
 
+// adds an item to the players inventory and saves
 function addToInventory(itemId) {
   const cat = ITEM_CATALOG[itemId];
   if (!cat) return;
@@ -9878,6 +9933,7 @@ function addToCaseRecentFeed(cat, rar) {
   if (feed.children.length > 15) feed.removeChild(feed.lastChild);
 }
 
+// opens a case and picks a random item based on weighted rarities
 function openCase() {
   if (caseOpening) return;
   const c = CASES[selectedCase];
@@ -10308,6 +10364,7 @@ function updatePlinkoBins(){
   }
 }
 
+// called when the ball lands in a bin at the bottom - pays out based on which slot it hit
 function handlePlinkoHit(ball){
   const _ballData0=plinkoBallBets[ball.id]; const _bet0=_ballData0?(typeof _ballData0==='object'?_ballData0.bet:_ballData0):0;
   if(!plinkoLastRowXCoords.length){ try{ Matter.Composite.remove(plinkoMatterEngine.world,ball); }catch(e){} delete plinkoBallBets[ball.id]; if(_bet0>0){ balance+=_bet0; try{_balMark&&_balMark();}catch(e){} updateBalDisplay(); } return; }
@@ -10477,6 +10534,7 @@ function removeAllPlinkoBalls(){
   plinkoBallBets={};
 }
 
+// drops a ball down the plinko board - physics handled by the matter.js engine
 function dropPlinkoBall(){
   if(plinkoDropLock)return;plinkoDropLock=true;
   if(!plinkoInitialized)initPlinko();
@@ -11510,6 +11568,7 @@ function cardRankIdx(c){return CARD_RANKS.indexOf(c.r);}
 let bjDeck=[],bjPlayer=[],bjDealer=[],bjBetAmt=0,bjActive=false;
 function bjDrawCard(){if(bjDeck.length<10)bjDeck=bjDeck.concat(newDeck());return bjDeck.pop();}
 function bjHandVal(h){let v=0,a=0;h.forEach(c=>{v+=cardNumVal(c);if(c.r==='A')a++;});while(v>21&&a>0){v-=10;a--;}return v;}
+// deals out a hand of blackjack to the player and dealer
 function bjDeal(){
   if(bjActive)return;const bet=parseBet(document.getElementById('bjBet').value)||10;if(bet<=0)return;
   if(!checkMaxBet(bet,'Blackjack'))return;
@@ -11539,6 +11598,7 @@ function bjRender(){const s=!bjActive;document.getElementById('bjDealerCards').i
 let _minesEnc=[],_minesKey=0,minesRevealed=0,minesBetAmt=0,minesActive=false,minesCount=3;
 function _mB(i){if(!minesActive)return false;return((_minesEnc[i]||0)^_minesKey)===1;} 
 function minesMultiplier(){const t=25,m=minesCount,r=minesRevealed;if(r===0)return 1;let mult=1;for(let i=0;i<r;i++)mult*=(t-m-i)>0?(t-i)/(t-m-i):t;return Math.round(mult*97)/100;}
+// starts a mines game - places bombs randomly and waits for clicks
 function minesStart(){
   if(minesActive)return;const bet=parseBet(document.getElementById('minesBet').value)||10;if(bet<=0)return;minesCount=parseInt(document.getElementById('mineCount').value);
   if(!minesCount||minesCount<1)minesCount=1;if(minesCount>24)minesCount=24;
@@ -11550,11 +11610,13 @@ function minesStart(){
   document.getElementById('minesStartBtn').style.display='none';document.getElementById('minesCashoutBtn').style.display='';
   document.getElementById('minesMultiplier').textContent='1.00ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â';document.getElementById('minesProfit').textContent='Next: $'+minesBetAmt.toFixed(2);playClickSound();
 }
+// takes the current multiplier and pays out - safe squares found so far determine the payout
 function minesCashout(){if(!minesActive||minesRevealed===0)return;const payout=prestigeBoost(minesBetAmt*minesMultiplier(),minesBetAmt);balance+=payout;try{_balMark&&_balMark();}catch(e){}updateBalDisplay();
   showBigWin(payout);showToast('+$'+payout.toFixed(2));playWinSound();spawnParticles(window.innerWidth/2,window.innerHeight/2,30);
   minesActive=false;minesRevealAll();document.getElementById('minesStartBtn').style.display='';document.getElementById('minesCashoutBtn').style.display='none';
   recordGame('mines',minesBetAmt,payout);firebaseSaveNow();
 }
+// handles a cell click - reveals if its safe or a bomb
 function minesClick(i){if(!minesActive)return;const cells=document.querySelectorAll('.mine-cell');if(cells[i].classList.contains('revealed'))return;
   if(_mB(i)){cells[i].classList.add('revealed','mine');cells[i].innerHTML=_ico('target','ico-sm');minesActive=false;
     showToast('-$'+minesBetAmt.toFixed(2),false);playLoseSound();minesRevealAll();
@@ -11571,6 +11633,7 @@ let diceMode='over', diceRolling=false;
 function diceSetMode(m){if(diceRolling)return;diceMode=m;document.getElementById('diceOverBtn').className='dice-mode-btn'+(m==='over'?' active':'');document.getElementById('diceUnderBtn').className='dice-mode-btn'+(m==='under'?' active':'');diceUpdateSlider();}
 function diceUpdateSlider(){const v=Math.max(5,Math.min(95,parseFloat(document.getElementById('diceSlider').value)));document.getElementById('diceSlider').value=v;const chance=diceMode==='over'?(100-v):v;const payout=chance>0?Math.min(Math.floor(99/chance*100)/100,9900):0;document.getElementById('diceTarget').textContent=v.toFixed(2);document.getElementById('diceChance').textContent=chance.toFixed(2)+'%';document.getElementById('dicePayout').textContent=payout.toFixed(2)+'ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â';
   const sl=document.getElementById('diceSlider');sl.style.background='linear-gradient(90deg,'+(diceMode==='over'?'var(--red)':'var(--green)')+' 0%,'+(diceMode==='over'?'var(--red)':'var(--green)')+' '+v+'%,'+(diceMode==='over'?'var(--green)':'var(--red)')+' '+v+'%,'+(diceMode==='over'?'var(--green)':'var(--red)')+' 100%)';}
+// rolls the dice - over/under bet
 function diceRoll(){if(diceRolling)return;const bet=parseBet(document.getElementById('diceBet').value)||10;if(bet>balance){showToast('Not enough!',false);return;}if(bet<=0)return;
   if(!checkMaxBet(bet,'Dice'))return;
   diceRolling=true;
@@ -11598,11 +11661,13 @@ function towerStart(){
   towerRender();document.getElementById('towerStartBtn').style.display='none';document.getElementById('towerCashoutBtn').style.display='';
   document.getElementById('towerInfo').innerHTML='Floor <span style="color:var(--neon)">1</span> - Pick a tile!';playClickSound();
 }
+// cash out of the tower game - payout gets bigger the higher you climbed
 function towerCashout(){if(!towerActive||towerRow===0)return;const p=prestigeBoost(towerBetAmt*towerMultiplier(),towerBetAmt);balance+=p;try{_balMark&&_balMark();}catch(e){}updateBalDisplay();
   showBigWin(p);showToast('+$'+p.toFixed(2));playWinSound();spawnParticles(window.innerWidth/2,window.innerHeight/2,30);
   towerActive=false;towerRevealAll();document.getElementById('towerStartBtn').style.display='';document.getElementById('towerCashoutBtn').style.display='none';
   document.getElementById('towerInfo').textContent='Cashed out at '+towerMultiplier().toFixed(2)+'ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â - $'+p.toFixed(2);recordGame('tower',towerBetAmt,p);firebaseSaveNow();
 }
+// player clicks a tile on the tower grid
 function towerClick(r,c){if(!towerActive||r!==towerRow)return;
   const rowEl=document.querySelectorAll('.tower-row')[towerRows-1-r];
   if(_tB(r,c)){towerRow++;rowEl.children[c].classList.add('revealed','safe');rowEl.children[c].innerHTML=_ico('lock','ico-sm');
@@ -11620,6 +11685,7 @@ function towerRender(){const g=document.getElementById('towerGrid');g.innerHTML=
 
 let coinChoice='heads',coinFlipping=false;
 function coinSelect(c){if(coinFlipping)return;coinChoice=c;document.getElementById('coinHeads').className='coin-choice'+(c==='heads'?' selected':'');document.getElementById('coinTails').className='coin-choice'+(c==='tails'?' selected':'');playClickSound();}
+// flips a coin - 50/50 heads or tails
 function coinFlip(){if(coinFlipping)return;const bet=parseBet(document.getElementById('coinBet').value)||10;if(bet<=0)return;if(bet>balance){showToast('Not enough!',false);return;}
   if(!checkMaxBet(bet,'Coinflip'))return;
   coinFlipping=true;
@@ -11640,6 +11706,7 @@ const KENO_PAYOUTS={1:[0,3.5],2:[0,1.5,8],3:[0,0.5,3,35],4:[0,0,1.5,8,70],5:[0,0
 function kenoInit(){const g=document.getElementById('kenoGrid');if(!g)return;g.innerHTML='';for(let i=1;i<=40;i++){const c=document.createElement('div');c.className='keno-num';c.textContent=i;c.onclick=(()=>{const n=i;return()=>kenoToggle(n);})();g.appendChild(c);}}
 function kenoToggle(n){if(kenoPlaying)return;const cells=document.querySelectorAll('.keno-num');if(kenoSelected.has(n)){kenoSelected.delete(n);cells[n-1].classList.remove('selected');}else{if(kenoSelected.size>=10){showToast('Max 10!',false);return;}kenoSelected.add(n);cells[n-1].classList.add('selected');}document.getElementById('kenoInfo').textContent=kenoSelected.size+'/10 selected';playClickSound();}
 function kenoClear(){if(kenoPlaying)return;kenoSelected.clear();document.querySelectorAll('.keno-num').forEach(c=>{c.className='keno-num';});document.getElementById('kenoInfo').textContent='Pick up to 10 numbers';document.getElementById('kenoResult').textContent='';}
+// runs a keno draw - picks 10 random numbers and pays out based on how many you matched
 function kenoDraw(){if(kenoPlaying||kenoSelected.size===0)return;const bet=parseBet(document.getElementById('kenoBet').value)||10;if(bet<=0)return;if(bet>balance){showToast('Not enough!',false);return;}
   if(!checkMaxBet(bet,'Keno'))return;
   kenoPlaying=true;balance-=bet;updateBalDisplay();if(!firebaseSaveBet(bet)){kenoPlaying=false;return;}document.getElementById('kenoDrawBtn').disabled=true;
@@ -11658,6 +11725,7 @@ function kenoDraw(){if(kenoPlaying||kenoSelected.size===0)return;const bet=parse
 
 let limboRolling=false;
 function limboUpdateInfo(){const t=parseFloat(document.getElementById('limboTarget').value)||2;const chance=Math.min(99,(99/t));document.getElementById('limboPayout').textContent='Win chance: '+chance.toFixed(2)+'% - Payout: '+t.toFixed(2)+'ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â';}
+// rolls a limbo multiplier and pays out if it meets the target
 function limboGo(){if(limboRolling)return;
   if(Date.now()-(window._lastLimboEnd||0)<1200){showToast('Cooldown!',false);return;}
   const bet=parseBet(document.getElementById('limboBet').value)||10;if(bet<1){showToast('Min bet $1',false);return;}if(bet<=0)return;let target=parseFloat(document.getElementById('limboTarget').value)||2;target=Math.max(1.01,Math.min(1000,target));
@@ -11677,6 +11745,7 @@ function limboGo(){if(limboRolling)return;
 }
 
 let pokerDeckArr=[],pokerHandArr=[],pokerHeld=[],pokerBetAmt=0,pokerPhase='idle';
+// deals a poker hand
 function pokerDeal(){
   if(pokerPhase==='hold'){pokerDrawCards();return;}
   const bet=parseBet(document.getElementById('pokerBet').value)||10;if(bet<=0)return;if(bet>balance){showToast('Not enough!',false);return;}
@@ -11764,6 +11833,7 @@ function horseInit() {
   hrGenerateRace();
 }
 
+// generates the race horses with random speeds
 function hrGenerateRace() {
   hrRaceNum++;
   
@@ -12054,6 +12124,7 @@ function hrSelectHorse(idx) {
 
 function horseSelect(i) { hrSelectHorse(i); }
 
+// starts the horse race animation
 function horseRace() {
   if (hrRacing || hrSelected < 0) { if (hrSelected < 0) showToast('Pick a horse first!', false); return; }
   const bet = parseBet(document.getElementById('horseBet').value) || 10;
@@ -12229,6 +12300,7 @@ function drawWheel(angle){wheelDrawn=true;const c=document.getElementById('wheel
   ctx.beginPath();ctx.arc(cx,cy,r*.12,0,Math.PI*2);ctx.fillStyle='#1a1208';ctx.fill();ctx.strokeStyle='rgba(255,213,74,.6)';ctx.lineWidth=2;ctx.stroke();
   ctx.beginPath();ctx.arc(cx,cy,r+2,0,Math.PI*2);ctx.strokeStyle='rgba(255,215,0,.2)';ctx.lineWidth=4;ctx.stroke();
 }
+// spins the wheel
 function wheelSpin(){if(wheelSpinning)return;const bet=parseBet(document.getElementById('wheelBet').value)||10;if(bet<=0)return;if(bet>balance){showToast('Not enough!',false);return;}
   if(!checkMaxBet(bet,'Wheel'))return;
   wheelSpinning=true;balance-=bet;updateBalDisplay();if(!firebaseSaveBet(bet)){wheelSpinning=false;return;}document.getElementById('wheelSpinBtn').disabled=true;document.getElementById('wheelResult').textContent='';playClickSound();
@@ -12260,6 +12332,7 @@ function baccSelect(type,btn){if(typeof _baccLocked!=='undefined'&&_baccLocked)r
 let _baccLocked=false;
 function baccCardVal(c){const v=cardNumVal(c);return v===11?1:v>=10?0:v;}
 function baccHandTotal(hand){return hand.reduce((s,c)=>s+baccCardVal(c),0)%10;}
+// deals a baccarat hand and resolves the player/banker/tie bet
 function baccDeal(){if(!baccBetType){showToast('Select bet!',false);return;}if(_baccLocked){showToast('Wait for current hand!',false);return;}const bet=parseBet(document.getElementById('baccBet').value)||10;if(bet<=0)return;if(bet>balance){showToast('Not enough!',false);return;}
   if(!checkMaxBet(bet,'Baccarat'))return;
   
@@ -12336,11 +12409,13 @@ function hiloStart(){if(hiloActive)return;const bet=parseBet(document.getElement
   hiloBetAmt=bet;balance-=bet;updateBalDisplay();if(!firebaseSaveBet(bet))return;hiloActive=true;hiloStreakCount=0;hiloSkipCount=0;hiloDeck=newDeck();hiloCard=hiloDeck.pop();hiloRender();
   document.getElementById('hiloStartBtn').style.display='none';document.getElementById('hiloCashoutBtn').style.display='';playClickSound();
 }
+// takes the multiplier earned so far and cashes out of the hi-lo streak
 function hiloCashout(){if(!hiloActive||hiloStreakCount===0)return;const p=prestigeBoost(hiloBetAmt*hiloMultiplier(),hiloBetAmt);balance+=p;try{_balMark&&_balMark();}catch(e){}updateBalDisplay();
   showBigWin(p);showToast('+$'+p.toFixed(2));playWinSound();spawnParticles(window.innerWidth/2,window.innerHeight/2,25);hiloActive=false;
   document.getElementById('hiloStartBtn').style.display='';document.getElementById('hiloCashoutBtn').style.display='none';
   document.getElementById('hiloStreak').textContent='Cashed out '+hiloMultiplier().toFixed(2)+'ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â - $'+p.toFixed(2);recordGame('hilo',hiloBetAmt,p);firebaseSaveNow();
 }
+// hi-lo - player guesses if the next card is higher or lower
 function hiloGuess(guess){if(!hiloActive)return;
   if(!navigator.onLine){showToast('You are offline! Reconnect to continue.',false);return;}
   if(hiloDeck.length<2)hiloDeck=newDeck();
@@ -12475,6 +12550,7 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
+// sends a chat message to the global chat
 function sendChatMessage() {
   const input = document.getElementById('chatInput');
   let text = input.value.trim();
@@ -12686,6 +12762,7 @@ function bsrUpdateStats() {
   if(el3) el3.textContent = bsrStats.streak;
 }
 
+// starts a buckshot roulette game
 function bsrStartGame() {
   const bet = parseBet(document.getElementById('bsrBet').value) || 100;
   if (bet <= 0) { showToast('Bet must be positive!', false); return; }
@@ -14728,10 +14805,12 @@ cupsInit();
 
 const MOD_ADMINS = ['mojheh', 'terpez', 'jiddy']; 
 
+// checks if the logged in user is on the mod/admin list
 function modIsStaff() {
   const name = (window._currentUsername || '').toLowerCase();
   return MOD_ADMINS.includes(name);
 }
+// returns what role they have - used for display purposes in the mod panel
 function modGetStaffLevel() {
   const name = (window._currentUsername || '').toLowerCase();
   if (name === 'mojheh') return 'owner';
@@ -14772,10 +14851,13 @@ let _modMuteUnsub = null;
 let _modBanUnsub = null;
 let _modWarnUnsub = null;
 
+// starts listening to firebase for ban/mute/warning changes
+// because its realtime, if someone gets banned while theyre online it kicks in immediately
 function modStartWatchers() {
   const uid = window._currentPlayerId;
   if (!uid) return;
   
+  // watches the banned users list - if a ban doc appears for this uid, show the ban screen and force log them out
   if (_modBanUnsub) { try { _modBanUnsub(); } catch(e){} }
   _modBanUnsub = window._fbOnValue('casino/bannedUsers/' + uid, (snap) => {
     if (!snap.exists()) return;
@@ -14787,6 +14869,7 @@ function modStartWatchers() {
     }
   });
   
+  // watches the muted users list - disables chat input and shows a countdown timer if muted
   if (_modMuteUnsub) { try { _modMuteUnsub(); } catch(e){} }
   _modMuteUnsub = window._fbOnValue('casino/mutedUsers/' + uid, (snap) => {
     if (!snap.exists()) {
@@ -14868,6 +14951,7 @@ let _modActionTargetUid = null;
 let _modActionTargetName = null;
 let _modSelectedDuration = 10080; 
 
+// pops up the mod action menu when you click on someones name
 function modOpenActionOnUser(uid, username) {
   if (!modIsStaff()) { showToast('Staff only!', false); return; }
   
@@ -14886,6 +14970,7 @@ function modOpenActionOnUser(uid, username) {
   setTimeout(() => { if (menu.parentNode) menu.remove(); }, 30000);
 }
 
+// opens the reason/duration modal for the chosen action type
 function modStartAction(type, uid, username) {
   if (!modIsStaff()) return;
   _modActionType = type;
@@ -14933,6 +15018,8 @@ function modCancelReason() {
   _modActionTargetName = null;
 }
 
+// this is what actually makes banning/muting work - writes to firebase
+// the ban watcher above will pick it up in realtime even if the target is online right now
 async function modConfirmReason() {
   if (!modIsStaff()) return;
   const reason = document.getElementById('modReasonCustom').value.trim() || 'No reason specified';
@@ -14987,6 +15074,7 @@ async function modConfirmReason() {
   _modActionTargetName = null;
 }
 
+// converts milliseconds to a readable string like "2d" or "30m"
 function formatDuration(ms) {
   if (ms >= 86400000) return Math.floor(ms / 86400000) + 'd';
   if (ms >= 3600000) return Math.floor(ms / 3600000) + 'h';
@@ -14994,6 +15082,7 @@ function formatDuration(ms) {
   return Math.floor(ms / 1000) + 's';
 }
 
+// removes a chat message - only mods can do this
 async function modDeleteChatMsg(key) {
   if (!modIsStaff()) return;
   try {
@@ -15006,12 +15095,14 @@ async function modDeleteChatMsg(key) {
 
 let _modPanelTab = 'banned';
 
+// opens the mod panel overlay
 function modOpenPanel() {
   if (!modIsStaff()) { showToast('Staff only!', false); return; }
   document.getElementById('modPanel').style.display = 'flex';
   modSwitchTab('banned');
 }
 
+// closes the mod panel overlay
 function modClosePanel() {
   document.getElementById('modPanel').style.display = 'none';
 }
@@ -15456,6 +15547,7 @@ function shopBuyPotion(type) {
   shopRefresh();
 }
 
+// returns a multiplier based on lucky items the player currently has equipped
 function getLuckBonus() {
   const lp = activePotions.luck || { stacks: 0, expires: 0 };
   if (lp.stacks > 0 && lp.expires > Date.now()) return 1 + (lp.stacks * 0.05);
@@ -15466,6 +15558,7 @@ function getPrestigeMultiplier() {
   return 1 + (prestigeLevel * 0.05);
 }
 
+// multiplies payouts based on the players prestige level - higher prestige = more money
 function prestigeBoost(basePayout, bet) {
   if (basePayout <= bet) return basePayout;
   const pm = getPrestigeMultiplier();
@@ -16032,11 +16125,13 @@ let _currentPollId = null;
 let _myPollVote = null;
 let _pollDismissedId = null;
 
+// checks if the logged in user is a site admin (mojheh, terpez, or jiddy)
 function adminIsStaff() {
   const n = (window._currentUsername || '').toLowerCase();
   return ['mojheh','terpez','jiddy'].includes(n);
 }
 
+// sends a server-wide announcement banner that everyone sees at the top of the screen
 async function adminSendAnnouncement() {
   if (!adminIsStaff()) return;
   const msg = document.getElementById('adminAnnounceInput').value.trim();
@@ -16048,6 +16143,7 @@ async function adminSendAnnouncement() {
   showToast('Announcement sent!', true);
 }
 
+// shows the announcement banner at the top and auto-dismisses it after 15 seconds
 function showAnnounceBanner(text) {
   const el = document.getElementById('adminAnnounceBanner');
   document.getElementById('announceText').textContent = text;
@@ -16072,6 +16168,7 @@ function adminAddPollOption() {
   container.appendChild(inp);
 }
 
+// creates a live poll that everyone online can vote in
 async function adminSendPoll() {
   if (!adminIsStaff()) return;
   const q = document.getElementById('adminPollQuestion').value.trim();
@@ -16090,6 +16187,7 @@ async function adminSendPoll() {
   showToast('Poll sent!', true);
 }
 
+// marks the poll as ended so people can still see results but cant vote anymore
 async function adminEndPoll() {
   if (!adminIsStaff()) return;
   await window._fbUpdate('casino/admin/poll', { status: 'ended' });
@@ -16155,6 +16253,7 @@ function closePollOverlay() {
   document.getElementById('adminPollOverlay').style.display = 'none';
 }
 
+// the big red button that triggers the ADMIN ABUSE animation for everyone online
 async function adminTriggerAbuse() {
   if (!adminIsStaff()) return;
   await window._fbSet('casino/admin/abuse', {
@@ -16959,6 +17058,7 @@ function showPrestigeAnimation(level) {
   setTimeout(() => { if (overlay.parentNode) overlay.remove(); }, 4500);
 }
 
+// doubles everyones balance - writes to firebase so offline players get it too when they come back
 async function adminDoubleAll() {
   if (!adminIsStaff()) return;
   if ((window._currentUsername||'').toLowerCase()==='jiddy'){showToast('No access to abuse actions!',false);return;}
@@ -16972,6 +17072,7 @@ async function adminDoubleAll() {
   showToast('Doubled everyone\'s money!', true);
 }
 
+// drops free money into everyones account - amount is picked from the admin panel
 async function adminRainMoney(amt) {
   if (!adminIsStaff()) return;
   if ((window._currentUsername||'').toLowerCase()==='jiddy'){showToast('No access to abuse actions!',false);return;}
@@ -16982,6 +17083,7 @@ async function adminRainMoney(amt) {
   showMoneyRain(amt);
 }
 
+// resets everyones balance back to $1000 - asks twice before doing it because theres no undo
 async function adminResetAll() {
   if (!adminIsStaff()) return;
   if ((window._currentUsername||'').toLowerCase()==='jiddy'){showToast('No access to abuse actions!',false);return;}
@@ -17014,6 +17116,7 @@ async function adminResetAll() {
   }
 }
 
+// wipes the entire chat history
 async function adminClearChat() {
   if (!adminIsStaff()) return;
   if ((window._currentUsername||'').toLowerCase()==='jiddy'){showToast('No access to abuse actions!',false);return;}
@@ -17021,6 +17124,7 @@ async function adminClearChat() {
   showToast('Chat cleared!', true);
 }
 
+// resets a single player's balance or does a full account wipe depending on the fullWipe flag
 async function adminResetPlayer(fullWipe) {
   if (!adminIsStaff()) return;
   const nameInput = document.getElementById('adminResetPlayerName');
