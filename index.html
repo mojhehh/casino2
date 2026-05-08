@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -6909,20 +6909,22 @@ function renderProfile() {
   
   const adminPanel = document.getElementById('adminPanel');
   const lowerName = name.toLowerCase();
-  if (lowerName === 'mojheh' || lowerName === 'terpez' || lowerName === 'jiddy') {
-    adminPanel.style.display = 'block';
-    
-    const abuseBtn = document.getElementById('adminAbuseStartBtn');
-    const abuseActions = document.getElementById('adminAbuseQuickActions');
-    if (lowerName === 'jiddy') {
-      if (abuseBtn) abuseBtn.style.display = 'none';
-      if (abuseActions) abuseActions.style.display = 'none';
+  const isAdmin = (lowerName === 'mojheh' || lowerName === 'terpez' || lowerName === 'jiddy');
+  if (adminPanel) {
+    if (isAdmin) {
+      adminPanel.style.display = 'block';
+      const abuseBtn = document.getElementById('adminAbuseStartBtn');
+      const abuseActions = document.getElementById('adminAbuseQuickActions');
+      if (lowerName === 'jiddy') {
+        if (abuseBtn) abuseBtn.style.display = 'none';
+        if (abuseActions) abuseActions.style.display = 'none';
+      } else {
+        if (abuseBtn) abuseBtn.style.display = '';
+        if (abuseActions) abuseActions.style.display = '';
+      }
     } else {
-      if (abuseBtn) abuseBtn.style.display = '';
-      if (abuseActions) abuseActions.style.display = '';
+      adminPanel.style.display = 'none';
     }
-  } else {
-    adminPanel.style.display = 'none';
   }
   
   const bugPanel = document.getElementById('bugReportPanel');
