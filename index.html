@@ -5918,6 +5918,12 @@ window._onAuthLoggedOut = function() {
   if (window._chatPresenceInterval) { clearInterval(window._chatPresenceInterval); window._chatPresenceInterval = null; }
   if (window._presenceCountInterval) { clearInterval(window._presenceCountInterval); window._presenceCountInterval = null; }
   if (typeof stockTickInterval !== 'undefined' && stockTickInterval) { clearInterval(stockTickInterval); stockTickInterval = null; }
+  try { if (typeof mpbsrChallengeInterval !== 'undefined' && mpbsrChallengeInterval) { clearInterval(mpbsrChallengeInterval); mpbsrChallengeInterval = null; } } catch(e){}
+  try { if (typeof rrChallengeInterval !== 'undefined' && rrChallengeInterval) { clearInterval(rrChallengeInterval); rrChallengeInterval = null; } } catch(e){}
+  try { if (typeof lbAutoInterval !== 'undefined' && lbAutoInterval) { clearInterval(lbAutoInterval); lbAutoInterval = null; } } catch(e){}
+  try { if (typeof rrState !== 'undefined') rrState = null; } catch(e){}
+  try { if (typeof bsrState !== 'undefined') bsrState = null; } catch(e){}
+  try { if (typeof _cups !== 'undefined' && _cups) _cups.active = false; } catch(e){}
   
   try {
     if (typeof crashRunning !== 'undefined') crashRunning = false;
@@ -6336,6 +6342,12 @@ function switchGame(game,btn){
     showToast('Finish your ' + activeGames[0] + ' game first!', false);
     return;
   }
+  /* Defensive: clear stale game-state flags before navigating to a new panel */
+  try { if (typeof rrState !== 'undefined' && rrState && rrState.gameOver) rrState = null; } catch(e){}
+  try { if (typeof _cups !== 'undefined' && _cups && !_cups.active) _cups.active = false; } catch(e){}
+  try { if (typeof pokerPhase !== 'undefined' && pokerPhase === 'done') pokerPhase = 'idle'; } catch(e){}
+  try { if (typeof kenoPlaying !== 'undefined' && !document.getElementById('kenoDrawBtn')?.disabled) kenoPlaying = false; } catch(e){}
+  try { if (typeof hrRacing !== 'undefined' && hrRacing && !document.getElementById('horseRaceBtn')?.disabled) hrRacing = false; } catch(e){}
   document.querySelectorAll('.game-panel').forEach(p=>p.classList.remove('active'));
   const targetPanel = document.getElementById(game+'Panel');
   if(targetPanel) targetPanel.classList.add('active'); else return;
@@ -10990,8 +11002,8 @@ function pylHandleOpponentDisconnect() {
   if (pylRoomUnsub) { pylRoomUnsub(); pylRoomUnsub = null; }
   pylGameActive = false;
 
-  const refund = pylWagerAmount; 
-  balance += refund;
+  const refund = (pylWagerEscrowed && pylWagerAmount > 0) ? pylWagerAmount : 0;
+  if (refund > 0) { balance += refund; try{_balMark&&_balMark();}catch(e){} pylWagerEscrowed = false; }
   updateBalDisplay();
   firebaseSaveNow(); 
 
@@ -12279,9 +12291,9 @@ function baccDeal(){if(!baccBetType){showToast('Select bet!',false);return;}if(_
       setTimeout(()=>{
         _baccLocked=false;
         document.querySelectorAll('.bacc-bet').forEach(b=>{b.disabled=false;b.style.pointerEvents='';});
-        if(payout>bet){balance+=payout;updateBalDisplay();showBigWin(payout);showToast((winner==='tie'?'TIE':winner.toUpperCase())+' +$'+(payout-bet).toFixed(2));playWinSound();
+        if(payout>bet){balance+=payout;try{_balMark&&_balMark();}catch(e){}updateBalDisplay();showBigWin(payout);showToast((winner==='tie'?'TIE':winner.toUpperCase())+' +$'+(payout-bet).toFixed(2));playWinSound();
           spawnParticles(window.innerWidth/2,window.innerHeight/2,25);document.getElementById('baccResult').innerHTML='<span style="color:var(--green)">'+winner.toUpperCase()+' WINS! +$'+payout.toFixed(2)+'</span>';recordGame('baccarat',bet,payout);addResultDot('baccHistory',winner[0].toUpperCase(),true);firebaseSaveNow();}
-        else if(payout===bet){balance+=payout;updateBalDisplay();showToast('Push');document.getElementById('baccResult').innerHTML='<span style="color:var(--gold)">PUSH</span>';recordGame('baccarat',bet,bet);addResultDot('baccHistory','T',false);}
+        else if(payout===bet){balance+=payout;try{_balMark&&_balMark();}catch(e){}updateBalDisplay();showToast('Push');document.getElementById('baccResult').innerHTML='<span style="color:var(--gold)">PUSH</span>';recordGame('baccarat',bet,bet);addResultDot('baccHistory','T',false);}
         else{showToast('-$'+bet.toFixed(2),false);playLoseSound();document.getElementById('baccResult').innerHTML='<span style="color:var(--red)">'+winner.toUpperCase()+' WINS</span>';recordGame('baccarat',bet,0);addResultDot('baccHistory',winner[0].toUpperCase(),false);}
       },400);
       return;
