@@ -147,8 +147,7 @@ body.reduced-motion *,body.reduced-motion *::before,body.reduced-motion *::after
 #balanceDisplay{margin-left:auto;display:flex;align-items:center;gap:8px;flex-shrink:0;}
 #balanceDisplay .bal{font-family:'Orbitron';font-size:16px;color:var(--gold);text-shadow:0 0 10px rgba(212,175,55,.45);}
 #balanceDisplay .bal span{transition:color .4s ease,text-shadow .4s ease;}
-#homeBackBtn{position:fixed;bottom:calc(24px + env(safe-area-inset-bottom,0px));right:18px;z-index:9990;display:none;width:46px;height:46px;border-radius:50%;border:1.5px solid var(--gold);background:rgba(10,7,2,.85);backdrop-filter:blur(10px);color:var(--gold);font-size:20px;cursor:pointer;align-items:center;justify-content:center;box-shadow:0 4px 18px rgba(0,0,0,.5),0 0 12px rgba(212,175,55,.2);touch-action:manipulation;-webkit-tap-highlight-color:transparent;transition:transform .15s,box-shadow .15s;}
-#homeBackBtn:active{transform:scale(0.9);}
+
 #balanceDisplay .add-btn{padding:5px 10px;border-radius:6px;cursor:pointer;
   background:linear-gradient(135deg,#3a2a08,#1a1208);color:var(--gold3);font-weight:800;font-size:12px;
   border:1px solid rgba(212,175,55,.45);transition:all .2s;font-family:'Orbitron';letter-spacing:.4px;}
@@ -693,7 +692,8 @@ body.reduced-motion *,body.reduced-motion *::before,body.reduced-motion *::after
 .logout-btn:hover{background:rgba(255,51,85,.08);border-color:var(--red);transform:translateY(-1px);}
 
 #leaderboardPanel{flex-direction:column;align-items:center;gap:16px;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;
-  padding:80px 20px 20px;background:radial-gradient(ellipse at top,rgba(22,22,58,0.6) 0%,var(--bg) 70%);}
+  padding:20px 20px 20px;background:radial-gradient(ellipse at top,rgba(22,22,58,0.6) 0%,var(--bg) 70%);
+  height:calc(100dvh - var(--nav-h));box-sizing:border-box;}
 .lb-container{width:100%;max-width:700px;animation:fadeInUp .4s ease both;}
 .lb-tabs{display:flex;gap:3px;margin-bottom:16px;flex-wrap:wrap;justify-content:center;}
 .lb-tab{padding:6px 10px;border:1px solid var(--border);border-radius:8px;background:transparent;
@@ -1822,8 +1822,6 @@ button.action-btn.primary{
   /* prevent zoom on input focus */
   input,select,textarea{font-size:max(16px, 1em) !important;}
 }
-  overscroll-behavior:contain;
-}
 
 @media only screen and (min-device-width:768px) and (max-device-width:1366px),
        only screen and (min-width:768px) and (max-width:1366px) and (hover:none) and (pointer:coarse){
@@ -2286,7 +2284,7 @@ document.addEventListener('keydown',function(e){ if(e.key==='Escape'){toggleNavD
 </div>
 
 <canvas id="particles"></canvas>
-<button id="homeBackBtn" aria-label="Back to home" title="Back to Home" onclick="goHomeWithZoom();hapticClick();">ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡</button>
+
 <div id="cfHint"><span>SWIPE</span><span class="cfh-arrow">ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂºÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂºÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Âº</span></div>
 
 <div class="win-toast" id="winToast"></div>
@@ -5487,15 +5485,8 @@ function safeNum(v) {
     if(!window.fetch) return;
     var ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
     if(ctrl) setTimeout(function(){ try{ctrl.abort();}catch(_){} }, 4000);
-    fetch('https://qrng.anu.edu.au/API/jsonI.php?length=8&type=uint32', ctrl?{signal:ctrl.signal}:{})
-      .then(function(r){ return r.ok ? r.json() : null; })
-      .then(function(j){
-        if(!j || !j.success || !Array.isArray(j.data)) return;
-        for(var i=0;i<j.data.length && i<entropyPool.length;i++){
-          entropyPool[i] = mix(entropyPool[i], j.data[i] >>> 0);
-        }
-      })
-      .catch(function(){});
+    /* ANU quantum RNG removed – blocked by CORS from web origins;
+       crypto.getRandomValues() already provides cryptographic entropy. */
   }
   setTimeout(tryQuantumSeed, 1200);
   setInterval(tryQuantumSeed, 5*60*1000);
@@ -6347,8 +6338,6 @@ function _getActiveGames(){
 function _anyGameActive(){ return _getActiveGames().length > 0; }
 
 function switchGame(game,btn){
-  const hb=document.getElementById('homeBackBtn');
-  if(hb)hb.style.display='flex';
   const activeGames = _getActiveGames();
   if(activeGames.length > 0) {
     showToast('Finish your ' + activeGames[0] + ' game first!', false);
@@ -6501,8 +6490,6 @@ window.goHomeWithZoom = function(){
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
   const catalog = document.getElementById('gameCatalog');
   if(catalog){ catalog.classList.remove('cf-hidden'); catalog.style.display = (casinoSettings && casinoSettings.homeLayout==='grid') ? 'grid' : 'flex'; }
-  const hb=document.getElementById('homeBackBtn');
-  if(hb)hb.style.display='none';
 };
 
 function adjustBet(id,mult){
