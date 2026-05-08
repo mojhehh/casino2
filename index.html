@@ -5125,6 +5125,16 @@ window._fbUpdate = async (path, data) => {
       console.warn('[anti-cheat] Cross-player balance update blocked');
       return Promise.reject(new Error('Blocked'));
     }
+    /* Self-balance write must match in-memory balance (anti-tamper); allow tiny float drift */
+    if (pm && pm[1] === uid && typeof data.balance === 'number') {
+      try {
+        const liveBal = (typeof window.getBalance === 'function') ? window.getBalance() : (typeof balance !== 'undefined' ? balance : null);
+        if (liveBal != null && Math.abs(data.balance - liveBal) > 1) {
+          console.warn('[anti-cheat] Self-balance write does not match in-memory balance, blocked', data.balance, liveBal);
+          return Promise.reject(new Error('Blocked'));
+        }
+      } catch(e){}
+    }
   }
   
   if (path === 'casino') {
@@ -5374,6 +5384,8 @@ const MAX_BALANCE = Infinity;
 const MIN_BALANCE = 0; 
 function safeNum(v) {
   if (typeof v !== 'number' || !isFinite(v)) return 0;
+  /* Above 2^45 (~3.5e13), Math.round*100 loses integer precision; just floor instead */
+  if (Math.abs(v) >= 3.5e13) return Math.max(MIN_BALANCE, Math.floor(v));
   return Math.max(MIN_BALANCE, Math.round(v * 100) / 100);
 }
 
@@ -7619,6 +7631,7 @@ async function duelCancel(code) {
     const room = snap.val();
     if (room.host === window._currentPlayerId && room.status === 'waiting') {
       balance += room.wager; 
+      try{_balMark&&_balMark();}catch(e){}
       updateBalDisplay();
       await window._fbRemove('casino/duelRooms/' + code);
       if (duelRoomUnsub) { duelRoomUnsub(); duelRoomUnsub = null; }
@@ -9251,7 +9264,7 @@ function spinSlots(){
     }
 
     if(winAmount>0){
-      balance=Math.round((balance+winAmount)*100)/100;updateBalDisplay();
+      balance=Math.round((balance+winAmount)*100)/100;try{_balMark&&_balMark();}catch(e){}updateBalDisplay();
       if(isMegaJackpot){
         slotsJackpotAnimation(winAmount, maxSym, bet);
         try{ showToast('MEGA JACKPOT!! 1000x!! $'+winAmount.toFixed(2)); }catch(e){}
@@ -9266,7 +9279,7 @@ function spinSlots(){
       }
     }else{
       
-      if(slotsShielded){ const refund=Math.floor(bet*0.5); balance+=refund; updateBalDisplay(); showToast('Shield! -$'+(bet-refund).toFixed(2),false); }
+      if(slotsShielded){ const refund=Math.floor(bet*0.5); balance+=refund; try{_balMark&&_balMark();}catch(e){} updateBalDisplay(); showToast('Shield! -$'+(bet-refund).toFixed(2),false); }
       else{ showToast('-$'+bet.toFixed(2),false); }
       playLoseSound();
     }
@@ -9369,9 +9382,9 @@ function startCrash(){
   crashPoint=1+(0.92/(1-rnd))-0.92;
   
   if(typeof getLuckBonus==='function'){ const lb=getLuckBonus(); if(lb>1) crashPoint*=lb; }
+  if(!isFinite(crashPoint)||isNaN(crashPoint))crashPoint=1.02;
   if(crashPoint<1.02)crashPoint=1.02;
   if(crashPoint>100)crashPoint=100;
-  if(!isFinite(crashPoint))crashPoint=1.02;
 
   document.getElementById('crashStartBtn').style.display='none';
   document.getElementById('cashoutBtn').style.display='';
@@ -9406,7 +9419,7 @@ function animateCrash(){
 
     if(!crashCashedOut){
       const crashShielded = typeof isShieldActive==='function' && isShieldActive();
-      if(crashShielded){ const refund=Math.floor(crashBetAmount*0.5); balance+=refund; updateBalDisplay(); showToast('Shield! -$'+(crashBetAmount-refund).toFixed(2),false); }
+      if(crashShielded){ const refund=Math.floor(crashBetAmount*0.5); balance+=refund; try{_balMark&&_balMark();}catch(e){} updateBalDisplay(); showToast('Shield! -$'+(crashBetAmount-refund).toFixed(2),false); }
       else{ showToast('CRASHED! -$'+crashBetAmount.toFixed(2),false); }
       playLoseSound();
       recordGame('crash', crashBetAmount, 0);
@@ -9562,7 +9575,7 @@ function spinRoulette(){
         payout=Math.round(prestigeBoost(payout,bet)*100)/100;
         
         if(typeof getLuckBonus==='function'){ const lb=getLuckBonus(); if(lb>1) payout=Math.round(payout*lb*100)/100; }
-        balance+=payout;updateBalDisplay();
+        balance+=payout;try{_balMark&&_balMark();}catch(e){}updateBalDisplay();
         showBigWin(payout);
         showToast('WIN $'+payout.toFixed(2)+'!');playWinSound();
         const rect=document.getElementById('rouletteCanvas').getBoundingClientRect();
@@ -9571,7 +9584,7 @@ function spinRoulette(){
         firebaseSaveNow();
       }else{
         const roulShielded = typeof isShieldActive==='function' && isShieldActive();
-        if(roulShielded){ const refund=Math.floor(bet*0.5); balance+=refund; updateBalDisplay(); showToast('Shield! -$'+(bet-refund).toFixed(2),false); }
+        if(roulShielded){ const refund=Math.floor(bet*0.5); balance+=refund; try{_balMark&&_balMark();}catch(e){} updateBalDisplay(); showToast('Shield! -$'+(bet-refund).toFixed(2),false); }
         else{ showToast('-$'+bet.toFixed(2),false); }
         playLoseSound();
         recordGame('roulette', bet, 0);
@@ -10119,7 +10132,7 @@ function renderInventory(){
       const val=getItemMarketValue(inv.itemId);
       const cat=ITEM_CATALOG[inv.itemId];
       if(!cat){removeFromInventory(invId);renderInventory();return;}
-      balance+=val;updateBalDisplay();
+      balance+=val;try{_balMark&&_balMark();}catch(e){}updateBalDisplay();
       removeFromInventory(invId);
       showToast('Sold '+cat.name+' for $'+val.toLocaleString()+'!');
       playWinSound();renderInventory();firebaseSave();
@@ -10228,7 +10241,7 @@ function initPlinko(){
     if(activeBalls.length>0){
       let refundTotal=0;
       activeBalls.forEach(id=>{refundTotal+=plinkoBallBets[id].bet||0;});
-      if(refundTotal>0){balance+=refundTotal;updateBalDisplay();showToast('Refunded $'+refundTotal.toFixed(2)+' for in-flight balls',true);}
+      if(refundTotal>0){balance+=refundTotal;try{_balMark&&_balMark();}catch(e){}updateBalDisplay();showToast('Refunded $'+refundTotal.toFixed(2)+' for in-flight balls',true);}
     }
     plinkoRowCount=parseInt(e.target.value);
     removeAllPlinkoBalls();placePlinkoPins();updatePlinkoBins();
@@ -11526,9 +11539,9 @@ function bjFinish(){
   const isNatural=bjPlayer.length===2&&pv===21;
   const dealerNatural=bjDealer.length===2&&dv===21;
   if(pv>21){msg='BUST!';showToast('-$'+bjBetAmt.toFixed(2),false);playLoseSound();}
-  else if(isNatural&&!dealerNatural){w=Math.round(prestigeBoost(bjBetAmt*2.5,bjBetAmt)*100)/100;msg='BLACKJACK! +$'+w.toFixed(2);balance+=w;updateBalDisplay();showBigWin(w);showToast('BLACKJACK! +$'+w.toFixed(2));playWinSound();spawnParticles(window.innerWidth/2,window.innerHeight/2,40);}
-  else if(dv>21||pv>dv){w=prestigeBoost(bjBetAmt*2,bjBetAmt);msg='WIN +$'+w.toFixed(2);balance+=w;updateBalDisplay();showBigWin(w);showToast('+$'+w.toFixed(2));playWinSound();spawnParticles(window.innerWidth/2,window.innerHeight/2,30);}
-  else if(pv===dv){w=bjBetAmt;msg='PUSH';balance+=w;updateBalDisplay();showToast('Push');}
+  else if(isNatural&&!dealerNatural){w=Math.round(prestigeBoost(bjBetAmt*2.5,bjBetAmt)*100)/100;msg='BLACKJACK! +$'+w.toFixed(2);balance+=w;try{_balMark&&_balMark();}catch(e){}updateBalDisplay();showBigWin(w);showToast('BLACKJACK! +$'+w.toFixed(2));playWinSound();spawnParticles(window.innerWidth/2,window.innerHeight/2,40);}
+  else if(dv>21||pv>dv){w=prestigeBoost(bjBetAmt*2,bjBetAmt);msg='WIN +$'+w.toFixed(2);balance+=w;try{_balMark&&_balMark();}catch(e){}updateBalDisplay();showBigWin(w);showToast('+$'+w.toFixed(2));playWinSound();spawnParticles(window.innerWidth/2,window.innerHeight/2,30);}
+  else if(pv===dv){w=bjBetAmt;msg='PUSH';balance+=w;try{_balMark&&_balMark();}catch(e){}updateBalDisplay();showToast('Push');}
   else{msg='LOSE';showToast('-$'+bjBetAmt.toFixed(2),false);playLoseSound();}
   const r=document.getElementById('bjResult');r.textContent=msg;r.style.color=w>bjBetAmt?'var(--green)':w===bjBetAmt?'var(--gold)':'var(--red)';
   recordGame('blackjack',bjBetAmt,w);
@@ -11550,7 +11563,7 @@ function minesStart(){
   document.getElementById('minesStartBtn').style.display='none';document.getElementById('minesCashoutBtn').style.display='';
   document.getElementById('minesMultiplier').textContent='1.00ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â';document.getElementById('minesProfit').textContent='Next: $'+minesBetAmt.toFixed(2);playClickSound();
 }
-function minesCashout(){if(!minesActive||minesRevealed===0)return;const payout=prestigeBoost(minesBetAmt*minesMultiplier(),minesBetAmt);balance+=payout;updateBalDisplay();
+function minesCashout(){if(!minesActive||minesRevealed===0)return;const payout=prestigeBoost(minesBetAmt*minesMultiplier(),minesBetAmt);balance+=payout;try{_balMark&&_balMark();}catch(e){}updateBalDisplay();
   showBigWin(payout);showToast('+$'+payout.toFixed(2));playWinSound();spawnParticles(window.innerWidth/2,window.innerHeight/2,30);
   minesActive=false;minesRevealAll();document.getElementById('minesStartBtn').style.display='';document.getElementById('minesCashoutBtn').style.display='none';
   recordGame('mines',minesBetAmt,payout);firebaseSaveNow();
@@ -11579,7 +11592,7 @@ function diceRoll(){if(diceRolling)return;const bet=parseBet(document.getElement
   balance-=bet;updateBalDisplay();if(!firebaseSaveBet(bet))return;let target=parseFloat(document.getElementById('diceSlider').value);target=Math.max(5,Math.min(95,target));const chance=diceMode==='over'?(100-target):target;const payout=chance>0?Math.min(Math.floor(99/chance*100)/100,9900):0;
   const roll=Math.random()*100;const won=diceMode==='over'?roll>target:roll<target;const display=document.getElementById('diceDisplay');
   display.textContent=roll.toFixed(2);display.style.color=won?'var(--green)':'var(--red)';
-  if(won){const w=prestigeBoost(bet*payout,bet);balance+=w;updateBalDisplay();showBigWin(w);showToast('+$'+w.toFixed(2));playWinSound();spawnParticles(window.innerWidth/2,window.innerHeight/2,25);recordGame('dice',bet,w);firebaseSaveNow();}
+  if(won){const w=prestigeBoost(bet*payout,bet);balance+=w;try{_balMark&&_balMark();}catch(e){}updateBalDisplay();showBigWin(w);showToast('+$'+w.toFixed(2));playWinSound();spawnParticles(window.innerWidth/2,window.innerHeight/2,25);recordGame('dice',bet,w);firebaseSaveNow();}
   else{showToast('-$'+bet.toFixed(2),false);playLoseSound();recordGame('dice',bet,0);}playClickSound();
   
   setTimeout(()=>{diceRolling=false;document.getElementById('diceSlider').disabled=false;},400);
@@ -11598,7 +11611,7 @@ function towerStart(){
   towerRender();document.getElementById('towerStartBtn').style.display='none';document.getElementById('towerCashoutBtn').style.display='';
   document.getElementById('towerInfo').innerHTML='Floor <span style="color:var(--neon)">1</span> - Pick a tile!';playClickSound();
 }
-function towerCashout(){if(!towerActive||towerRow===0)return;const p=prestigeBoost(towerBetAmt*towerMultiplier(),towerBetAmt);balance+=p;updateBalDisplay();
+function towerCashout(){if(!towerActive||towerRow===0)return;const p=prestigeBoost(towerBetAmt*towerMultiplier(),towerBetAmt);balance+=p;try{_balMark&&_balMark();}catch(e){}updateBalDisplay();
   showBigWin(p);showToast('+$'+p.toFixed(2));playWinSound();spawnParticles(window.innerWidth/2,window.innerHeight/2,30);
   towerActive=false;towerRevealAll();document.getElementById('towerStartBtn').style.display='';document.getElementById('towerCashoutBtn').style.display='none';
   document.getElementById('towerInfo').textContent='Cashed out at '+towerMultiplier().toFixed(2)+'ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â - $'+p.toFixed(2);recordGame('tower',towerBetAmt,p);firebaseSaveNow();
@@ -11629,7 +11642,7 @@ function coinFlip(){if(coinFlipping)return;const bet=parseBet(document.getElemen
   const coin=document.getElementById('coinDisplay');coin.classList.remove('flip');void coin.offsetWidth;coin.classList.add('flip');playClickSound();
   const result=Math.random()<0.5?'heads':'tails';
   setTimeout(()=>{coin.innerHTML=result==='heads'?_ico('star','ico-2x'):_ico('coin','ico-2x');const won=result===lockedChoice;
-    if(won){const w=prestigeBoost(bet*1.96,bet);balance+=w;updateBalDisplay();showBigWin(w);showToast('+$'+w.toFixed(2));playWinSound();spawnParticles(window.innerWidth/2,window.innerHeight/2,25);
+    if(won){const w=prestigeBoost(bet*1.96,bet);balance+=w;try{_balMark&&_balMark();}catch(e){}updateBalDisplay();showBigWin(w);showToast('+$'+w.toFixed(2));playWinSound();spawnParticles(window.innerWidth/2,window.innerHeight/2,25);
       document.getElementById('coinResult').innerHTML='<span style="color:var(--green)">'+result.toUpperCase()+' - WIN!</span>';recordGame('coinflip',bet,w);firebaseSaveNow();}
     else{showToast('-$'+bet.toFixed(2),false);playLoseSound();document.getElementById('coinResult').innerHTML='<span style="color:var(--red)">'+result.toUpperCase()+' - LOSE</span>';recordGame('coinflip',bet,0);}
     coinFlipping=false;document.getElementById('coinFlipBtn').disabled=false;},800);
@@ -11670,7 +11683,7 @@ function limboGo(){if(limboRolling)return;
     display.textContent=Math.max(1,result).toFixed(2)+'ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â';const won=result>=target;
     display.style.color=won?'var(--green)':'var(--red)';
     if(limboBar){const pct=Math.min(100,(result/Math.max(target,2))*100);limboBar.style.width=pct+'%';limboBar.style.background=won?'var(--green)':'var(--red)';limboBar.style.boxShadow=won?'0 0 15px var(--green)':'0 0 15px var(--red)';}
-    if(won){const w=prestigeBoost(bet*target,bet);balance+=w;updateBalDisplay();showBigWin(w);showToast('+$'+w.toFixed(2));playWinSound();spawnParticles(window.innerWidth/2,window.innerHeight/2,25);recordGame('limbo',bet,w);addResultDot('limboHistory',target.toFixed(1)+'ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â',true);firebaseSaveNow();}
+    if(won){const w=prestigeBoost(bet*target,bet);balance+=w;try{_balMark&&_balMark();}catch(e){}updateBalDisplay();showBigWin(w);showToast('+$'+w.toFixed(2));playWinSound();spawnParticles(window.innerWidth/2,window.innerHeight/2,25);recordGame('limbo',bet,w);addResultDot('limboHistory',target.toFixed(1)+'ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â',true);firebaseSaveNow();}
     else{showToast('-$'+bet.toFixed(2),false);playLoseSound();recordGame('limbo',bet,0);addResultDot('limboHistory',result.toFixed(1)+'ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â',false);}
     limboRolling=false;window._lastLimboEnd=Date.now();setTimeout(()=>{document.getElementById('limboGoBtn').disabled=false;},600);}
   else{display.textContent=cur.toFixed(2)+'ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â';display.style.color='var(--neon)';if(limboBar){const pct=Math.min(100,(cur/Math.max(target,2))*100);limboBar.style.width=pct+'%';limboBar.style.background=cur>=target?'var(--green)':'var(--neon)';limboBar.style.transition='width 0.05s';}playSound(400+cur*30,'sine',.02,.015);}},50);
@@ -12082,6 +12095,7 @@ function horseRace() {
   const staminaDrain = hrCurrentWeather.staminaDrain;
 
   const raceInterval = setInterval(() => {
+    try {
     let winner = -1;
 
     hrRaceHorses.forEach((h, i) => {
@@ -12144,6 +12158,7 @@ function horseRace() {
       if (winner === hrLockedSelection) {
         const w = prestigeBoost(bet * odds, bet);
         balance += w;
+        try{_balMark&&_balMark();}catch(e){}
         updateBalDisplay();
         if (typeof showBigWin === 'function') showBigWin(w);
         showToast(winHorse.name + ' WINS! +$' + w.toFixed(2));
@@ -12169,6 +12184,12 @@ function horseRace() {
       document.getElementById('horseResult').innerHTML += orderHtml;
 
       setTimeout(() => { hrGenerateRace(); }, 4000);
+    }
+    } catch(err) {
+      clearInterval(raceInterval);
+      hrRacing = false;
+      try { document.getElementById('horseRaceBtn').disabled = false; } catch(e){}
+      console.warn('horseRace interval error:', err);
     }
   }, 50);
 }
@@ -12258,7 +12279,7 @@ function baccDeal(){if(!baccBetType){showToast('Select bet!',false);return;}if(_
   const lockedBaccBet=baccBetType;
   _baccLocked=true;
   document.querySelectorAll('.bacc-bet').forEach(b=>{b.disabled=true;b.style.pointerEvents='none';});
-  balance-=bet;updateBalDisplay();if(!firebaseSaveBet(bet)){_baccLocked=false;return;}const deck=newDeck();const player=[deck.pop(),deck.pop()],banker=[deck.pop(),deck.pop()];
+  balance-=bet;updateBalDisplay();if(!firebaseSaveBet(bet)){_baccLocked=false;document.querySelectorAll('.bacc-bet').forEach(b=>{b.disabled=false;b.style.pointerEvents='';});return;}const deck=newDeck();const player=[deck.pop(),deck.pop()],banker=[deck.pop(),deck.pop()];
   let pScore=baccHandTotal(player),bScore=baccHandTotal(banker);
   if(pScore<8&&bScore<8){let pThird=null;
     if(pScore<=5){pThird=deck.pop();player.push(pThird);pScore=baccHandTotal(player);}
@@ -12328,7 +12349,7 @@ function hiloStart(){if(hiloActive)return;const bet=parseBet(document.getElement
   hiloBetAmt=bet;balance-=bet;updateBalDisplay();if(!firebaseSaveBet(bet))return;hiloActive=true;hiloStreakCount=0;hiloSkipCount=0;hiloDeck=newDeck();hiloCard=hiloDeck.pop();hiloRender();
   document.getElementById('hiloStartBtn').style.display='none';document.getElementById('hiloCashoutBtn').style.display='';playClickSound();
 }
-function hiloCashout(){if(!hiloActive||hiloStreakCount===0)return;const p=prestigeBoost(hiloBetAmt*hiloMultiplier(),hiloBetAmt);balance+=p;updateBalDisplay();
+function hiloCashout(){if(!hiloActive||hiloStreakCount===0)return;const p=prestigeBoost(hiloBetAmt*hiloMultiplier(),hiloBetAmt);balance+=p;try{_balMark&&_balMark();}catch(e){}updateBalDisplay();
   showBigWin(p);showToast('+$'+p.toFixed(2));playWinSound();spawnParticles(window.innerWidth/2,window.innerHeight/2,25);hiloActive=false;
   document.getElementById('hiloStartBtn').style.display='';document.getElementById('hiloCashoutBtn').style.display='none';
   document.getElementById('hiloStreak').textContent='Cashed out '+hiloMultiplier().toFixed(2)+'ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â - $'+p.toFixed(2);recordGame('hilo',hiloBetAmt,p);firebaseSaveNow();
@@ -12723,6 +12744,7 @@ function bsrStartGame() {
 function bsrShowRoundSplash(roundNum, callback) {
   const splash = document.getElementById('bsrRoundSplash');
   const txt = document.getElementById('bsrRoundSplashText');
+  if (bsrState) bsrState.animating = true;
   txt.textContent = 'ROUND ' + roundNum;
   splash.style.display = 'flex';
   splash.style.opacity = '0';
@@ -12735,6 +12757,7 @@ function bsrShowRoundSplash(roundNum, callback) {
     splash.style.opacity = '0';
     setTimeout(() => {
       splash.style.display = 'none';
+      if (bsrState) bsrState.animating = false;
       if(callback) callback();
     }, 500);
   }, 1600);
@@ -15045,10 +15068,11 @@ async function modRenderPanel() {
         const isPerm = !d.until || d.until >= 9999999999999;
         const expired = !isPerm && d.until <= Date.now();
         if (expired) { window._fbRemove('casino/bannedUsers/' + uid); continue; }
+        const _uid = String(uid || '');
         const timeLeft = isPerm ? '<span style="color:#ff3333;">PERMANENT</span>' : formatDuration(d.until - Date.now()) + ' left';
         html += `<div class="mod-panel-item">
           <div class="mod-panel-item-info">
-            <div class="mod-panel-item-name">${d.username || uid.slice(0,8)}</div>
+            <div class="mod-panel-item-name">${d.username || _uid.slice(0,8) || 'unknown'}</div>
             <div class="mod-panel-item-detail">Reason: ${d.reason || '-'} ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· ${timeLeft} ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· By: ${d.bannedBy || '?'}</div>
           </div>
           <div class="mod-panel-item-actions">
@@ -15066,10 +15090,11 @@ async function modRenderPanel() {
         const isPerm = !d.until || d.until >= 9999999999999;
         const expired = !isPerm && d.until <= Date.now();
         if (expired) { window._fbRemove('casino/mutedUsers/' + uid); continue; }
+        const _uid = String(uid || '');
         const timeLeft = isPerm ? '<span style="color:#ff8800;">PERMANENT</span>' : formatDuration(d.until - Date.now()) + ' left';
         html += `<div class="mod-panel-item">
           <div class="mod-panel-item-info">
-            <div class="mod-panel-item-name">${d.username || uid.slice(0,8)}</div>
+            <div class="mod-panel-item-name">${d.username || _uid.slice(0,8) || 'unknown'}</div>
             <div class="mod-panel-item-detail">Reason: ${d.reason || '-'} ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· ${timeLeft} ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· By: ${d.mutedBy || '?'}</div>
           </div>
           <div class="mod-panel-item-actions">
@@ -15110,7 +15135,8 @@ async function modLookupUser() {
   try {
     const snap = await window._fbGet('casino/usernames/' + username.toLowerCase());
     if (!snap.exists()) { resultDiv.innerHTML = '<div style="color:var(--red);font-size:12px;">User not found</div>'; return; }
-    const uid = snap.val();
+    const uid = String(snap.val() || '');
+    if (!uid) { resultDiv.innerHTML = '<div style="color:var(--red);font-size:12px;">User record corrupted (no UID)</div>'; return; }
     
     const [banSnap, muteSnap] = await Promise.all([
       window._fbGet('casino/bannedUsers/' + uid),
@@ -15538,6 +15564,8 @@ function _generateGlobalLimited(){
 async function initLimitedCases(){
   if(_limitedUnsub){ try{_limitedUnsub();}catch(e){} _limitedUnsub=null; }
   if(!window._fbOnValue){ setTimeout(initLimitedCases,500); return; }
+  let _limitedRenderT = 0;
+  const _debouncedRender = () => { if (_limitedRenderT) return; _limitedRenderT = setTimeout(() => { _limitedRenderT = 0; try { renderLimitedCases(); } catch(e){} }, 250); };
   _limitedUnsub = window._fbOnValue('casino/limitedCases/current', async (snap) => {
     const cur = snap && snap.exists && snap.exists() ? snap.val() : null;
     const now = Date.now();
@@ -15548,7 +15576,7 @@ async function initLimitedCases(){
     } else {
       limitedCases = [cur];
     }
-    renderLimitedCases();
+    _debouncedRender();
   });
   if(limitedCaseTimer) clearInterval(limitedCaseTimer);
   limitedCaseTimer = setInterval(renderLimitedCases, 30000);
