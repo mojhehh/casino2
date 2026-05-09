@@ -11505,7 +11505,10 @@ function bjFinish(){
 function bjRender(){const s=!bjActive;document.getElementById('bjDealerCards').innerHTML=bjDealer.map((c,i)=>renderCard(c,!s&&i===1)).join('');document.getElementById('bjPlayerCards').innerHTML=bjPlayer.map(c=>renderCard(c)).join('');document.getElementById('bjDealerScore').textContent=s?bjHandVal(bjDealer):'?';document.getElementById('bjPlayerScore').textContent=bjHandVal(bjPlayer);document.getElementById('bjHitBtn').disabled=!bjActive;document.getElementById('bjStandBtn').disabled=!bjActive;document.getElementById('bjDoubleBtn').disabled=!bjActive||bjPlayer.length!==2;document.getElementById('bjDealBtn').disabled=bjActive;}
 
 let _minesEnc=[],_minesKey=0,minesRevealed=0,minesBetAmt=0,minesActive=false,minesCount=3;
-function _mB(i){if(!minesActive)return false;return((_minesEnc[i]||0)^_minesKey)===1;} 
+function _mB(i){
+  const v = (_minesEnc[i] === undefined) ? 0 : _minesEnc[i];
+  return (v ^ _minesKey) === 1;
+}
 function minesMultiplier(){const t=25,m=minesCount,r=minesRevealed;if(r===0)return 1;let mult=1;for(let i=0;i<r;i++)mult*=(t-m-i)>0?(t-i)/(t-m-i):t;return Math.round(mult*97)/100;}
 function minesStart(){
   if(minesActive)return;const bet=parseBet(document.getElementById('minesBet').value)||10;if(bet<=0)return;minesCount=parseInt(document.getElementById('mineCount').value);
@@ -11544,7 +11547,7 @@ function diceRoll(){if(diceRolling)return;const bet=parseBet(document.getElement
   diceRolling=true;
   
   document.getElementById('diceSlider').disabled=true;
-  balance-=bet;updateBalDisplay();if(!firebaseSaveBet(bet))return;let target=parseFloat(document.getElementById('diceSlider').value);target=Math.max(5,Math.min(95,target));const chance=diceMode==='over'?(100-target):target;const payout=chance>0?Math.min(Math.floor(99/chance*100)/100,9900):0;
+  balance-=bet;updateBalDisplay();if(!firebaseSaveBet(bet)){diceRolling=false;document.getElementById('diceSlider').disabled=false;return;}let target=parseFloat(document.getElementById('diceSlider').value);target=Math.max(5,Math.min(95,target));const chance=diceMode==='over'?(100-target):target;const payout=chance>0?Math.min(Math.floor(99/chance*100)/100,9900):0;
   const roll=Math.random()*100;const won=diceMode==='over'?roll>target:roll<target;const display=document.getElementById('diceDisplay');
   display.textContent=roll.toFixed(2);display.style.color=won?'var(--green)':'var(--red)';
   if(won){const w=prestigeBoost(bet*payout,bet);balance+=w;try{_balMark&&_balMark();}catch(e){}updateBalDisplay();showBigWin(w);showToast('+$'+w.toFixed(2));playWinSound();spawnParticles(window.innerWidth/2,window.innerHeight/2,25);recordGame('dice',bet,w);firebaseSaveNow();}
@@ -11554,7 +11557,11 @@ function diceRoll(){if(diceRolling)return;const bet=parseBet(document.getElement
 }
 
 let _towerEnc=[],_towerKey=0,towerRow=0,towerBetAmt=0,towerActive=false,towerCols=3,towerRows=8,towerSafePerRow=2;
-function _tB(r,c){if(!towerActive)return false;return((_towerEnc[r]&&_towerEnc[r][c]||0)^_towerKey)===1;} 
+function _tB(r,c){
+  const row = _towerEnc[r];
+  const v = (row && row[c] !== undefined) ? row[c] : 0;
+  return (v ^ _towerKey) === 1;
+}
 function towerMultiplier(){if(towerRow===0)return 1;let m=1;for(let i=0;i<towerRow;i++)m*=towerCols/towerSafePerRow;return Math.round(m*97)/100;}
 function towerStart(){
   if(towerActive)return;const bet=parseBet(document.getElementById('towerBet').value)||10;if(bet<=0)return;if(bet>balance){showToast('Not enough!',false);return;}
@@ -12235,7 +12242,7 @@ function baccDeal(){if(!baccBetType){showToast('Select bet!',false);return;}if(_
   const lockedBaccBet=baccBetType;
   _baccLocked=true;
   document.querySelectorAll('.bacc-bet').forEach(b=>{b.disabled=true;b.style.pointerEvents='none';});
-  balance-=bet;updateBalDisplay();if(!firebaseSaveBet(bet)){_baccLocked=false;return;}const deck=newDeck();const player=[deck.pop(),deck.pop()],banker=[deck.pop(),deck.pop()];
+  balance-=bet;updateBalDisplay();if(!firebaseSaveBet(bet)){_baccLocked=false;document.querySelectorAll('.bacc-bet').forEach(b=>{b.disabled=false;b.style.pointerEvents='';});return;}const deck=newDeck();const player=[deck.pop(),deck.pop()],banker=[deck.pop(),deck.pop()];
   let pScore=baccHandTotal(player),bScore=baccHandTotal(banker);
   if(pScore<8&&bScore<8){let pThird=null;
     if(pScore<=5){pThird=deck.pop();player.push(pThird);pScore=baccHandTotal(player);}
@@ -13423,7 +13430,7 @@ function rrStartBot() {
   };
 
   balance -= bet;
-  updateBalDisplay();if(!firebaseSaveBet(bet))return;
+  updateBalDisplay();if(!firebaseSaveBet(bet)){ rrState = null; return; }
 
   document.getElementById('rrBotLobby').style.display = 'none';
   document.getElementById('rrPvpLobby').style.display = 'none';
@@ -13752,7 +13759,7 @@ async function rrStartPvP() {
     await window._fbSet('casino/rrGames/' + gameId, gameData);
     
     balance -= bet;
-    updateBalDisplay();if(!firebaseSaveBet(bet))return;
+    updateBalDisplay();if(!firebaseSaveBet(bet)){ await window._fbRemove('casino/rrGames/' + gameId); return; }
     
     const notifKey = Date.now().toString(36) + Math.random().toString(36).slice(2, 4);
     await window._fbSet('casino/players/' + opUid + '/notifications/' + notifKey, {
@@ -14090,7 +14097,7 @@ async function mpbsrChallenge() {
     });
     
     balance -= bet;
-    updateBalDisplay();if(!firebaseSaveBet(bet))return;
+    updateBalDisplay();if(!firebaseSaveBet(bet)){ await window._fbRemove('casino/bsrGames/' + gameId); return; }
     
     const nk = Date.now().toString(36) + Math.random().toString(36).slice(2, 4);
     await window._fbSet('casino/players/' + opUid + '/notifications/' + nk, {
