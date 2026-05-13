@@ -5056,13 +5056,13 @@ window._fbSet = async (path, data) => {
   
   if (typeof path === 'string' && /casino\/admin\//.test(path)) {
     if (!/casino\/admin\/(eventPresence|eventChat)\//.test(path)) {
-      const isStaff = ['mojheh','terpez','jiddy'].includes((window._currentUsername||'').toLowerCase());
+      const isStaff = ['mojheh','terpez','jiddy','andr3w'].includes((window._currentUsername||'').toLowerCase());
       if (!isStaff) { console.warn('[anti-cheat] Admin write blocked'); return Promise.reject(new Error('Blocked')); }
     }
   }
   
   if (typeof path === 'string' && /casino\/(bannedUsers|mutedUsers|warnings)/.test(path)) {
-    const isStaff = ['mojheh','terpez','jiddy'].includes((window._currentUsername||'').toLowerCase());
+    const isStaff = ['mojheh','terpez','jiddy','andr3w'].includes((window._currentUsername||'').toLowerCase());
     if (!isStaff) { console.warn('[anti-cheat] Mod action blocked'); return Promise.reject(new Error('Blocked')); }
   }
   
