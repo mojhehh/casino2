@@ -5050,7 +5050,7 @@ window._fbSet = async (path, data) => {
   }
   
   if (typeof path === 'string' && /casino\/bugReports\//.test(path)) {
-    const isTester = ['youguyssuck','mojheh','terpez'].includes((window._currentUsername||'').toLowerCase());
+    const isTester = ['youguyssuck','mojheh','terpez','andr3w'].includes((window._currentUsername||'').toLowerCase());
     if (!isTester) { console.warn('[anti-cheat] Bug report write blocked'); return Promise.reject(new Error('Blocked')); }
   }
   
