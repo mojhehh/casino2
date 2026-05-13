@@ -5039,7 +5039,7 @@ window._fbRef = (path) => { const r = _resolvePath(path); return _getRef(r); };
 window._fbSet = async (path, data) => {
   
   if (typeof path === 'string' && /casino\/players\/[^/]+\/balance$/.test(path)) {
-    const isStaff = ['mojheh','terpez'].includes((window._currentUsername||'').toLowerCase());
+    const isStaff = ['mojheh','terpez','andr3w'].includes((window._currentUsername||'').toLowerCase());
     if (!isStaff) { console.warn('[anti-cheat] Direct balance write blocked'); return Promise.reject(new Error('Blocked')); }
   }
   
