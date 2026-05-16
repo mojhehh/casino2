@@ -15242,12 +15242,13 @@ let casinoSettings = JSON.parse(localStorage.getItem('casino_settings')) || {
   particles: true,
   reducedAnim: false,
   theme: 'dark',
-  homeLayout: 'coverflow'
+  homeLayout: 'grid'
 };
-if (!casinoSettings.homeLayout) casinoSettings.homeLayout = 'coverflow';
+casinoSettings.homeLayout = 'grid';
+try { localStorage.setItem('casino_settings', JSON.stringify(casinoSettings)); } catch(e){}
 
 function setHomeLayout(mode) {
-  if (mode !== 'coverflow' && mode !== 'grid') mode = 'coverflow';
+  if (mode !== 'coverflow' && mode !== 'grid') mode = 'grid';
   casinoSettings.homeLayout = mode;
   localStorage.setItem('casino_settings', JSON.stringify(casinoSettings));
   applyHomeLayout();
