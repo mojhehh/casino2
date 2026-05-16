@@ -5557,7 +5557,12 @@ function formatBetInput(v){
   v=safeNum(v);
   const abs=Math.abs(v);
   for(const s of _NUM_SUFFIXES){
-    if(abs>=s.v)return (v/s.v).toFixed(abs>=s.v*10?1:2)+s.s.toLowerCase();
+    if(abs>=s.v){
+      const dec=abs>=s.v*10?1:2;
+      const f=Math.pow(10,dec);
+      const truncated=Math.floor(Math.abs(v)/s.v*f)/f*(v<0?-1:1);
+      return truncated.toFixed(dec)+s.s.toLowerCase();
+    }
   }
   return String(Math.floor(v));
 }
@@ -6456,7 +6461,7 @@ window.goHomeWithZoom = function(){
 
 function adjustBet(id,mult){
   const el=document.getElementById(id);
-  let v=Math.max(1,Math.round(parseBet(el.value||'10')*mult));
+  let v=Math.max(1,Math.floor(parseBet(el.value||'10')*mult));
   if(v>balance)v=Math.floor(balance);
   el.value=formatBetInput(v);
 }
