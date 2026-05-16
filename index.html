@@ -1670,11 +1670,9 @@ button.action-btn.primary{
 
 .coverflow-rail{scrollbar-width:none;-ms-overflow-style:none;}
 .coverflow-rail.cf-hidden,.coverflow-rail.flat-grid.cf-hidden{display:none !important;}
-/* contain:paint clips the 3D card during rotation - causes black box artifacts. Use contain:style only */
 .coverflow-rail .catalog-card{will-change:transform,opacity;contain:style;-webkit-backface-visibility:hidden;backface-visibility:hidden;-webkit-transform-style:preserve-3d;transform-style:preserve-3d;}
 .coverflow-rail.flat-grid .catalog-card{will-change:auto;contain:layout style;transform:none !important;opacity:1 !important;z-index:auto !important;}
 .coverflow-rail::-webkit-scrollbar{display:none;}
-/* Edge fades: use pointer-events:none, fixed position relative to wrapper, z-index above cards */
 .coverflow-rail::before{content:'';position:absolute;left:0;top:0;bottom:0;width:14vw;pointer-events:none;background:linear-gradient(90deg,rgba(7,6,4,.97),rgba(7,6,4,0));z-index:1100;will-change:auto;}
 .coverflow-rail::after{content:'';position:absolute;right:0;top:0;bottom:0;width:14vw;pointer-events:none;background:linear-gradient(-90deg,rgba(7,6,4,.97),rgba(7,6,4,0));z-index:1100;will-change:auto;}
 .coverflow-rail .catalog-card{
@@ -1687,7 +1685,6 @@ button.action-btn.primary{
   font-size:18px !important;
   border-radius:24px !important;
   animation:none !important;
-  /* no backdrop-filter on cards - kills 3D compositing */
   background:linear-gradient(160deg,rgba(28,21,9,0.97) 0%,rgba(10,7,3,0.99) 100%) !important;
   border:1.5px solid rgba(212,175,55,.32) !important;
   box-shadow:0 18px 50px rgba(0,0,0,.7),inset 0 1px 0 rgba(240,215,122,.08) !important;
@@ -1789,7 +1786,6 @@ button.action-btn.primary{
 #profilePanel.active{display:block!important;overflow-y:auto!important;-webkit-overflow-scrolling:touch;}
 #profilePanel > div{margin:0 auto;width:100%;max-width:600px;}
 
-/* Universal scroll fix - applies on ALL devices */
 .game-panel,#profilePanel,#settingsOverlay,#shopOverlay,#gamesMenuOverlay,#leaderboardPanel,#cratesOverlay,#friendsPanel,#notifPanel,.modal-overlay,.overlay-panel{
   overflow-y:auto !important;
   overflow-x:hidden !important;
@@ -1802,22 +1798,17 @@ button.action-btn.primary{
   -webkit-overflow-scrolling:touch !important;
   overscroll-behavior:contain;
 }
-/* iOS Safari: prevent input focus from jumping layout */
 @supports (-webkit-touch-callout: none){
   html{height:-webkit-fill-available;}
   body{min-height:-webkit-fill-available;}
   .game-panel.active{min-height:unset;}
-  /* reduce heavy blurs inside panels for perf */
   .bet-controls,.htp-box,.slots-machine,.card-game-wrap{
     backdrop-filter:blur(6px) !important;
     -webkit-backdrop-filter:blur(6px) !important;
   }
-  /* range inputs: make thumb big enough to tap */
   input[type=range]::-webkit-slider-thumb{width:28px;height:28px;}
-  /* number inputs: hide spinners */
   input[type=number]::-webkit-inner-spin-button,
   input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0;}
-  /* prevent zoom on input focus */
   input,select,textarea{font-size:max(16px, 1em) !important;}
 }
 
@@ -2775,7 +2766,7 @@ document.addEventListener('keydown',function(e){ if(e.key==='Escape'){toggleNavD
   </div>
   <div class="limbo-target-wrap">
     <label>Target ×</label>
-    <input type="number" id="limboTarget" value="2" min="1.01" max="1000" step="0.01">
+    <input type="number" id="limboTarget" value="2" min="1.01" step="0.01">
   </div>
   
   <div id="limboPayout">Win chance: 49.50% - Payout: 2.00×</div>
@@ -3930,7 +3921,7 @@ document.addEventListener('keydown',function(e){ if(e.key==='Escape'){toggleNavD
 
 <script type="module">
 import{initializeApp}from"https://www.gstatic.com/firebasejs/11.8.1/firebase-app.js";
-import{getFirestore,initializeFirestore,doc,collection,setDoc,getDoc,getDocs,updateDoc,deleteDoc,onSnapshot,query as fsQuery,orderBy,limit as fsLimit,addDoc,writeBatch,deleteField}from"https://www.gstatic.com/firebasejs/11.8.1/firebase-firestore.js";
+import{getFirestore,initializeFirestore,doc,collection,setDoc,getDoc,getDocs,updateDoc,deleteDoc,onSnapshot,query as fsQuery,orderBy,limit as fsLimit,addDoc,writeBatch,deleteField,runTransaction}from"https://www.gstatic.com/firebasejs/11.8.1/firebase-firestore.js";
 import{getAuth,createUserWithEmailAndPassword,signInWithEmailAndPassword,signOut,onAuthStateChanged}from"https://www.gstatic.com/firebasejs/11.8.1/firebase-auth.js";
 
 const firebaseConfig={
@@ -4018,7 +4009,6 @@ function _runDisconnectActions(){
     }
   }
 }
-// beforeunload fires on desktop; pagehide fires on iOS Safari when user backgrounds/closes
 window.addEventListener('beforeunload', _runDisconnectActions);
 window.addEventListener('pagehide', _runDisconnectActions);
 
@@ -4170,6 +4160,7 @@ onAuthStateChanged(auth, async (user) => {
     let _resetCooldownUntil = 0;
     window._setResetCooldown = () => { _resetCooldownUntil = Date.now() + 30000; };
     async function _syncBalance() {
+      if (!auth.currentUser || !playerId) return;
       if (Date.now() < _resetCooldownUntil) return;
       if (typeof _anyGameActive === 'function' && _anyGameActive()) return;
       if (typeof _fbSaveDirty !== 'undefined' && _fbSaveDirty) return; 
@@ -4209,6 +4200,11 @@ onAuthStateChanged(auth, async (user) => {
     });
   } else {
     if (window._balanceUnsub) { clearInterval(window._balanceUnsub); window._balanceUnsub = null; }
+    if (window._quantumInterval) { clearInterval(window._quantumInterval); window._quantumInterval = null; }
+    if (window._tickDemandInterval) { clearInterval(window._tickDemandInterval); window._tickDemandInterval = null; }
+    if (window._dualSaveInterval) { clearInterval(window._dualSaveInterval); window._dualSaveInterval = null; }
+    if (window._tradeReqInterval) { clearInterval(window._tradeReqInterval); window._tradeReqInterval = null; }
+    if (typeof stockTickInterval !== 'undefined' && stockTickInterval) { clearInterval(stockTickInterval); stockTickInterval = null; }
     currentUser = null;
     currentUsername = '';
     playerId = '';
@@ -4682,24 +4678,29 @@ window._storePlaceBid = async (listingId, bidAmount) => {
   if (!playerId || !currentUsername) return { error: 'Not logged in' };
   const listRef = doc(db, 'storeListings', listingId);
   try {
-    const snap = await getDoc(listRef);
-    if (!snap.exists()) return { error: 'Listing not found' };
-    const d = snap.data();
-    if (d.sold) return { error: 'Already sold' };
-    if (d.sellerUid === playerId) return { error: "Can't bid on your own item" };
-    if (d.type !== 'auction') return { error: 'Not an auction' };
-    if (Date.now() > d.endsAt) return { error: 'Auction ended' };
-    if (bidAmount <= (d.currentBid || 0)) return { error: 'Bid must be higher than $' + (d.currentBid || 0) + ' (someone outbid you)' };
-    const oldBidderUid = d.highBidderUid || '';
-    const oldBidAmount = d.currentBid || 0;
-    const itemNameForRefund = d.itemName || d.itemId;
-    
-    await updateDoc(listRef, { currentBid: bidAmount, highBidder: currentUsername, highBidderUid: playerId });
-    
-    if (oldBidderUid && oldBidAmount > 0 && oldBidderUid !== playerId) {
-      await addDoc(collection(db, 'pendingRefunds', oldBidderUid, 'items'), { item: null, cash: oldBidAmount, reason: 'outbid', from: currentUsername, itemName: itemNameForRefund, ts: Date.now() });
+    let txResult;
+    try {
+      txResult = await runTransaction(db, async (tx) => {
+        const snap = await tx.get(listRef);
+        if (!snap.exists()) return { error: 'Listing not found' };
+        const d = snap.data();
+        if (d.sold) return { error: 'Already sold' };
+        if (d.sellerUid === playerId) return { error: "Can't bid on your own item" };
+        if (d.type !== 'auction') return { error: 'Not an auction' };
+        if (Date.now() > d.endsAt) return { error: 'Auction ended' };
+        if (bidAmount <= (d.currentBid || 0)) return { error: 'Bid must be higher than $' + (d.currentBid || 0) + ' (someone outbid you)' };
+        const oldBidderUid = d.highBidderUid || '';
+        const oldBidAmount = d.currentBid || 0;
+        const itemNameForRefund = d.itemName || d.itemId;
+        tx.update(listRef, { currentBid: bidAmount, highBidder: currentUsername, highBidderUid: playerId });
+        return { ok: true, oldBidderUid, oldBidAmount, itemNameForRefund };
+      });
+    } catch(e) { return { error: 'Bid failed: ' + (e.message || 'unknown') }; }
+    if (txResult.error) return txResult;
+    if (txResult.oldBidderUid && txResult.oldBidAmount > 0 && txResult.oldBidderUid !== playerId) {
+      await addDoc(collection(db, 'pendingRefunds', txResult.oldBidderUid, 'items'), { item: null, cash: txResult.oldBidAmount, reason: 'outbid', from: currentUsername, itemName: txResult.itemNameForRefund, ts: Date.now() });
     }
-    return { success: true, oldBidderUid: oldBidderUid, oldBid: oldBidAmount };
+    return { success: true, oldBidderUid: txResult.oldBidderUid, oldBid: txResult.oldBidAmount };
   } catch(e) { return { error: 'Bid failed: ' + (e.message || 'unknown') }; }
 };
 
@@ -5338,7 +5339,6 @@ window._sendChatMsg = async (text, username, type) => {
   });
   
   try {
-    /* Only trim once per 5 minutes per client to avoid O(N) reads on every send */
     const _now = Date.now();
     const _trimKey = 'casino_chat_trim_ts';
     const _lastTrim = parseInt(localStorage.getItem(_trimKey) || '0');
@@ -5465,10 +5465,9 @@ function safeNum(v) {
   }
 
   function tryQuantumSeed(){
-    // Browser CORS blocks ANU here; local crypto entropy is already strong enough.
   }
   setTimeout(tryQuantumSeed, 1200);
-  setInterval(tryQuantumSeed, 5*60*1000);
+  window._quantumInterval = setInterval(tryQuantumSeed, 5*60*1000);
 
   ['mousemove','touchmove','keydown','pointerdown'].forEach(function(ev){
     window.addEventListener(ev, function(e){
@@ -5603,8 +5602,8 @@ function formatFullMoney(v){
 let _lastBalForFlash=null;
 function updateBalDisplay(){
   balance=safeNum(balance);
-  _balMark();
   const el=document.getElementById('balText');
+  if(!el) return;
   el.textContent=formatBalance(balance);
   el.title='$'+balance.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
   el.style.transition='transform .15s';
@@ -5961,12 +5960,8 @@ function checkMaxBet(bet, game) {
     showToast('Invalid bet amount', false);
     return false;
   }
-  if (!navigator.onLine) {
-    showToast('You\u2019re offline \u2014 reconnecting will sync your balance. Bet blocked until online.', false);
-    return false;
-  }
   if (bet > balance) {
-    showToast('Max bet is your balance: $' + Math.floor(balance).toLocaleString('en-US'), false);
+    showToast('Not enough balance', false);
     return false;
   }
   return true;
@@ -7043,7 +7038,7 @@ const PRESTIGE_COLORS = ['prestige-1','prestige-2','prestige-3','prestige-4','pr
 window._loadPrestige = (val) => { prestigeLevel = val || 0; };
 window._getPrestige = () => prestigeLevel;
 
-window._loadProfilePicUrl = (url) => { /* Only accept http/https URLs to prevent javascript: injection */ const safe = (url && /^https?:\/\//.test(url)) ? url : ''; customPfpUrl = safe; localStorage.setItem('casino_pfp_url', customPfpUrl); if (customPfpUrl) { selectedPfp = ''; localStorage.setItem('casino_pfp', ''); } applyPfp(); };
+window._loadProfilePicUrl = (url) => { const safe = (url && /^https?:\/\//.test(url)) ? url : ''; customPfpUrl = safe; localStorage.setItem('casino_pfp_url', customPfpUrl); if (customPfpUrl) { selectedPfp = ''; localStorage.setItem('casino_pfp', ''); } applyPfp(); };
 window._getProfilePicUrl = () => customPfpUrl || null;
 
 function getPrestigeReq() {
@@ -7071,7 +7066,9 @@ async function adminGiveMoney() {
       showToast('User "' + username + '" not found!', false);
       return;
     }
-    const userId = usersSnap.val();
+    const _uval = usersSnap.val();
+    const userId = (typeof _uval === 'object' && _uval !== null) ? _uval.uid : _uval;
+    if (!userId) { showToast('Could not resolve user ID for "' + username + '"', false); return; }
     
     const playerSnap = await window._fbGet('casino/players/' + userId);
     const currentData = playerSnap.exists() ? playerSnap.val() : {};
@@ -7216,10 +7213,11 @@ async function duelCreate() {
 
 async function duelJoin(code) {
   if (!window._currentPlayerId) { showToast('Login required!', false); return; }
+  let snap, room;
   try {
-    const snap = await window._fbGet('casino/duelRooms/' + code);
+    snap = await window._fbGet('casino/duelRooms/' + code);
     if (!snap.exists()) { showToast('Duel not found!', false); return; }
-    const room = snap.val();
+    room = snap.val();
     if (room.status !== 'waiting') { showToast('Duel already started!', false); return; }
     if (room.host === window._currentPlayerId) { showToast("Can't join your own duel!", false); return; }
     if (room.wager > balance) { showToast('Not enough balance!', false); return; }
@@ -7236,7 +7234,7 @@ async function duelJoin(code) {
     
     duelWatchGame(code, room.wager);
   } catch(e) {
-    balance += room.wager; updateBalDisplay();
+    if (room) { balance += room.wager; updateBalDisplay(); }
     showToast('Failed to join duel: ' + (e.message || 'Unknown error'), false);
   }
 }
@@ -7297,11 +7295,12 @@ function duelWatchGame(code, wager) {
           duelResolve(code);
           
           setTimeout(async () => {
-            if (currentDuelRoom !== code) return; 
+            if (currentDuelRoom !== code) return;
             const finalSnap = await window._fbGet('casino/duelRooms/' + code);
-            if (finalSnap.exists() && !finalSnap.val().result) {
+            if (finalSnap.exists() && !finalSnap.val().result && !finalSnap.val().settled) {
+              await window._fbUpdate('casino/duelRooms/' + code, { settled: true }).catch(()=>{});
               balance += wager; updateBalDisplay();
-              firebaseSaveNow(); 
+              firebaseSaveNow();
               showToast('Duel timed out - wager refunded!', false);
               document.getElementById('duelGameOverlay').style.display = 'none';
               currentDuelRoom = null;
@@ -7838,12 +7837,12 @@ function liveTradeAddItem() {
   const item = inventory.find(x => x.id === invId);
   if (!item) return;
   
-  if (_liveTradeMyItems.includes(item.itemId)) {
+  if (_liveTradeMyItems.includes(item.id)) {
     showToast('Item already in offer', false);
     return;
   }
-  
-  _liveTradeMyItems.push(item.itemId);
+
+  _liveTradeMyItems.push(item.id);
   sel.value = '';
   liveTradeUpdateMyDisplay();
   liveTradeSync();
@@ -7862,9 +7861,10 @@ function liveTradeUpdateMyDisplay() {
     el.textContent = 'No items added';
     return;
   }
-  el.innerHTML = _liveTradeMyItems.map((id, i) => {
-    const cat = (typeof ITEM_CATALOG !== 'undefined') ? ITEM_CATALOG[id] : null;
-    const name = cat ? `${_ico(cat.icon,'ico-sm')} ${cat.name}` : id;
+  el.innerHTML = _liveTradeMyItems.map((invId, i) => {
+    const it = inventory.find(x => x.id === invId);
+    const cat = (it && typeof ITEM_CATALOG !== 'undefined') ? ITEM_CATALOG[it.itemId] : null;
+    const name = cat ? `${_ico(cat.icon,'ico-sm')} ${cat.name}` : (it ? it.itemId : invId);
     return `<div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;">${name} <button onclick="liveTradeRemoveItem(${i})" style="padding:1px 6px;background:var(--red);border:none;border-radius:4px;color:#fff;cursor:pointer;font-size:9px;">${_ico('x','ico-sm')}</button></div>`;
   }).join('');
 }
@@ -7878,9 +7878,13 @@ async function liveTradeSync() {
   if (!_liveTradeId) return;
   const offerKey = _liveTradeIsHost ? 'hostOffer' : 'guestOffer';
   const cash = Math.max(0, parseBet(document.getElementById('tradeCashAmount').value) || 0);
+  const itemIdsForServer = _liveTradeMyItems.map(uid => {
+    const it = inventory.find(x => x.id === uid);
+    return it ? it.itemId : uid;
+  });
   await window._fbUpdate('casino/liveTrades/' + _liveTradeId, {
     [offerKey]: {
-      items: _liveTradeMyItems.join(','),
+      items: itemIdsForServer.join(','),
       cash: cash
     },
     [_liveTradeIsHost ? 'hostReady' : 'guestReady']: false
@@ -7918,9 +7922,10 @@ async function liveTradeExecute() {
   }
 
   const myItemsCopy = [..._liveTradeMyItems];
-  for (const itemId of myItemsCopy) {
-    const idx = inventory.findIndex(x => x.itemId === itemId);
-    if (idx >= 0) inventory.splice(idx, 1);
+  const removedItemDefs = [];
+  for (const invId of myItemsCopy) {
+    const idx = inventory.findIndex(x => x.id === invId);
+    if (idx >= 0) { removedItemDefs.push(inventory[idx].itemId); inventory.splice(idx, 1); }
   }
   
   if (cash > 0) { balance -= cash; updateBalDisplay(); }
@@ -7930,7 +7935,7 @@ async function liveTradeExecute() {
     statusEl.textContent = 'Error: ' + res.error;
     statusEl.style.color = 'var(--red)';
     
-    for (const itemId of myItemsCopy) { addToInventory(itemId); }
+    for (const itemId of removedItemDefs) { addToInventory(itemId); }
     if (cash > 0) { balance += cash; _balMark(); updateBalDisplay(); }
     return;
   }
@@ -9691,6 +9696,7 @@ function addToInventory(itemId) {
   const cat = ITEM_CATALOG[itemId];
   if (!cat) return;
   invIdCounter++;
+  while (inventory.some(x => x.id === invIdCounter)) invIdCounter++;
   const item = { id: invIdCounter, itemId: itemId, acquiredPrice: getItemMarketValue(itemId), acquiredAt: Date.now() };
   inventory.push(item);
   
@@ -9767,7 +9773,7 @@ function tickDemand() {
     d.mult = Math.max(0.3, Math.min(3, d.mult));
   });
 }
-setInterval(tickDemand, 5000);
+window._tickDemandInterval = setInterval(tickDemand, 5000);
 
 let caseStreak = 0, caseOpenTotal = 0, caseBestTier = -1, caseBestName = '-';
 let caseRecentUnboxes = [];
@@ -10085,13 +10091,18 @@ function renderInventory(){
       const invId=parseInt(btn.dataset.inv);
       const inv=inventory.find(x=>x.id===invId);
       if(!inv)return;
+      const stashedItem = {...inv};
       const val=getItemMarketValue(inv.itemId);
       const cat=ITEM_CATALOG[inv.itemId];
       if(!cat){removeFromInventory(invId);renderInventory();return;}
       balance+=val;updateBalDisplay();
       removeFromInventory(invId);
       showToast('Sold '+cat.name+' for $'+val.toLocaleString()+'!');
-      playWinSound();renderInventory();firebaseSave();
+      playWinSound();renderInventory();
+      try { firebaseSave(); } catch(err) {
+        inventory.push(stashedItem); balance-=val; updateBalDisplay(); renderInventory();
+        showToast('Save failed - sale reverted', false);
+      }
     };
   });
 }
@@ -10192,17 +10203,23 @@ function initPlinko(){
   },2000);
 
   document.getElementById('plinkoRows').addEventListener('change',e=>{
-    
     const activeBalls=Object.keys(plinkoBallBets);
     if(activeBalls.length>0){
       let refundTotal=0;
       activeBalls.forEach(id=>{refundTotal+=plinkoBallBets[id].bet||0;});
-      if(refundTotal>0){balance+=refundTotal;updateBalDisplay();showToast('Refunded $'+refundTotal.toFixed(2)+' for in-flight balls',true);}
+      if(refundTotal>0){balance+=refundTotal;updateBalDisplay();firebaseSave();showToast('Refunded $'+refundTotal.toFixed(2)+' for in-flight balls',true);}
     }
     plinkoRowCount=parseInt(e.target.value);
     removeAllPlinkoBalls();placePlinkoPins();updatePlinkoBins();
   });
   document.getElementById('plinkoRisk').addEventListener('change',e=>{
+    const activeBalls=Object.keys(plinkoBallBets);
+    if(activeBalls.length>0){
+      let refundTotal=0;
+      activeBalls.forEach(id=>{refundTotal+=plinkoBallBets[id].bet||0;});
+      if(refundTotal>0){balance+=refundTotal;updateBalDisplay();firebaseSave();showToast('Refunded $'+refundTotal.toFixed(2)+' for in-flight balls',true);}
+    }
+    removeAllPlinkoBalls();
     plinkoRiskLevel=e.target.value;updatePlinkoBins();
   });
 }
@@ -10302,6 +10319,8 @@ function handlePlinkoHit(ball){
 
   const payouts=PLINKO_PAYOUTS[ballRows][ballRisk];
   if(!payouts){return;}
+  if(binIndex<0) binIndex=0;
+  if(binIndex>=payouts.length) binIndex=payouts.length-1;
   const multiplier=payouts[binIndex];
   const payout=prestigeBoost(betAmt*multiplier,betAmt);
   const profit=payout-betAmt;
@@ -10454,7 +10473,7 @@ function dropPlinkoBall(){
   if(Date.now()-(window._lastPlinkoDrop||0)<150){plinkoDropLock=false;return;}
   const bet=parseBet(document.getElementById('plinkoBet').value)||10;
   if(bet<1){showToast('Min bet $1',false);plinkoDropLock=false;return;}
-  if(bet>balance){showToast('Not enough balance!',false);if(autoDropping)toggleAutoDrop();plinkoDropLock=false;return;}
+  if(!checkMaxBet(bet,'Plinko')){if(autoDropping)toggleAutoDrop();plinkoDropLock=false;return;}
   if(bet<=0){plinkoDropLock=false;return;}
 
   balance-=bet;updateBalDisplay();if(!firebaseSaveBet(bet)){plinkoDropLock=false;return;}
@@ -10507,11 +10526,12 @@ let pylGameActive = false;
 let pylOpponentId = null; 
 
 window.addEventListener('message', function(evt) {
+  if (evt.origin && evt.origin !== window.location.origin && !/^https?:\/\/localhost(:|\/|$)/.test(evt.origin)) return;
   if (evt.data && evt.data.type === 'pylScore' && pylGameActive) {
     const score = evt.data.score || 0;
     document.getElementById('pylScoreDisplay').textContent = 'Score: ' + score;
     document.getElementById('pylScoreInput').value = score;
-    
+    pylGameActive = false;
     pylSubmitScore();
   }
   
@@ -10681,6 +10701,7 @@ function pylCreateRoom() {
     window._pylCreateRoom(pylRoomCode, wager).then(() => {
       
       let pylGameStarted = false;
+      if (pylRoomUnsub) { pylRoomUnsub(); pylRoomUnsub = null; }
       pylRoomUnsub = window._pylListenRoom(pylRoomCode, (data) => {
         if (!data || pylGameStarted) return;
         const players = data.players || {};
@@ -10705,6 +10726,7 @@ function pylCreateRoom() {
           document.getElementById('pylOpponentScore').textContent = 'Playing...';
           pylGameActive = true;
 
+          if (pylRoomUnsub) { pylRoomUnsub(); pylRoomUnsub = null; }
           pylRoomUnsub = window._pylListenRoom(pylRoomCode, (roomData) => {
             if (!roomData) {
               pylHandleOpponentDisconnect();
@@ -10764,7 +10786,8 @@ function pylJoinRoom() {
       }
       balance -= pylWagerAmount;
       updateBalDisplay();
-      firebaseSaveNow(); 
+      pylWagerEscrowed = true;
+      firebaseSaveNow();
 
       showToast('Joined! Game on!');
       playWinSound();
@@ -10782,6 +10805,7 @@ function pylJoinRoom() {
       document.getElementById('pylOpponentScore').textContent = 'Playing...';
       pylGameActive = true;
 
+      if (pylRoomUnsub) { pylRoomUnsub(); pylRoomUnsub = null; }
       pylRoomUnsub = window._pylListenRoom(pylRoomCode, (roomData) => {
         if (!roomData) {
           pylHandleOpponentDisconnect();
@@ -10792,7 +10816,7 @@ function pylJoinRoom() {
           if (ps[opId].score != null) {
             document.getElementById('pylOpponentScore').textContent = ps[opId].score + ' pts';
           }
-          
+
           if (ps[opId].online === false && ps[opId].score == null && pylGameActive) {
             pylHandleOpponentDisconnect();
           }
@@ -11281,33 +11305,33 @@ function renderStocks() {
   const holding = stockHoldings[s.ticker];
   const hasHolding = holding && holding.shares > 0;
 
-  document.getElementById('stockTickerLabel').textContent = '$' + s.ticker;
-  document.getElementById('stockNameLabel').textContent = s.name;
-  document.getElementById('stockPriceDisplay').textContent = '$' + formatStockPrice(price);
+  const _tl=document.getElementById('stockTickerLabel'); if(_tl) _tl.textContent = '$' + s.ticker;
+  const _nl=document.getElementById('stockNameLabel'); if(_nl) _nl.textContent = s.name;
+  const _pd=document.getElementById('stockPriceDisplay'); if(_pd) _pd.textContent = '$' + formatStockPrice(price);
   const changeEl = document.getElementById('stockChangeDisplay');
   const firstPrice = hist[0] || price;
   const totalChangePct = ((price - firstPrice) / firstPrice * 100).toFixed(2);
   const tickChangePct = changePct;
-  changeEl.innerHTML = (isUp ? '▲' : '▼') + ' ' + tickChangePct + '% <span style="color:#8b949e;font-size:12px;">tick</span> &nbsp; ' +
+  if (changeEl) { changeEl.innerHTML = (isUp ? '▲' : '▼') + ' ' + tickChangePct + '% <span style="color:#8b949e;font-size:12px;">tick</span> &nbsp; ' +
     (price >= firstPrice ? '▲' : '▼') + ' ' + totalChangePct + '% <span style="color:#8b949e;font-size:12px;">session</span>';
-  changeEl.className = 'sh-change ' + (isUp ? 'up' : 'down');
+  changeEl.className = 'sh-change ' + (isUp ? 'up' : 'down'); }
 
   if (hasHolding) {
     const curVal = holding.shares * price;
     const pnl = curVal - holding.totalCost;
-    document.getElementById('stockShares').textContent = holding.shares.toFixed(4);
-    document.getElementById('stockValue').textContent = '$' + curVal.toFixed(2);
+    const _ss=document.getElementById('stockShares'); if(_ss) _ss.textContent = holding.shares.toFixed(4);
+    const _sv=document.getElementById('stockValue'); if(_sv) _sv.textContent = '$' + curVal.toFixed(2);
     const pnlEl = document.getElementById('stockPnl');
-    pnlEl.textContent = (pnl >= 0 ? '+' : '') + '$' + pnl.toFixed(2);
-    pnlEl.style.color = pnl >= 0 ? '#3fb950' : '#f85149';
+    if (pnlEl) { pnlEl.textContent = (pnl >= 0 ? '+' : '') + '$' + pnl.toFixed(2);
+    pnlEl.style.color = pnl >= 0 ? '#3fb950' : '#f85149'; }
   } else {
-    document.getElementById('stockShares').textContent = '0';
-    document.getElementById('stockValue').textContent = '$0';
+    const _ss=document.getElementById('stockShares'); if(_ss) _ss.textContent = '0';
+    const _sv=document.getElementById('stockValue'); if(_sv) _sv.textContent = '$0';
     const pnlEl = document.getElementById('stockPnl');
-    pnlEl.textContent = '$0';
-    pnlEl.style.color = '#8b949e';
+    if (pnlEl) { pnlEl.textContent = '$0';
+    pnlEl.style.color = '#8b949e'; }
   }
-  document.getElementById('stockSellBtn').disabled = !hasHolding;
+  const _sb=document.getElementById('stockSellBtn'); if(_sb) _sb.disabled = !hasHolding;
 
   drawStockChart(hist);
 
@@ -11521,7 +11545,7 @@ function minesStart(){
   document.getElementById('minesStartBtn').style.display='none';document.getElementById('minesCashoutBtn').style.display='';
   document.getElementById('minesMultiplier').textContent='1.00×';document.getElementById('minesProfit').textContent='Next: $'+minesBetAmt.toFixed(2);playClickSound();
 }
-function minesCashout(){if(!minesActive||minesRevealed===0)return;const payout=prestigeBoost(minesBetAmt*minesMultiplier(),minesBetAmt);balance+=payout;try{_balMark&&_balMark();}catch(e){}updateBalDisplay();
+function minesCashout(){if(!minesActive||minesRevealed<1)return;const payout=prestigeBoost(minesBetAmt*minesMultiplier(),minesBetAmt);balance+=payout;try{_balMark&&_balMark();}catch(e){}updateBalDisplay();
   showBigWin(payout);showToast('+$'+payout.toFixed(2));playWinSound();spawnParticles(window.innerWidth/2,window.innerHeight/2,30);
   minesActive=false;minesRevealAll();document.getElementById('minesStartBtn').style.display='';document.getElementById('minesCashoutBtn').style.display='none';
   recordGame('mines',minesBetAmt,payout);firebaseSaveNow();
@@ -11573,7 +11597,7 @@ function towerStart(){
   towerRender();document.getElementById('towerStartBtn').style.display='none';document.getElementById('towerCashoutBtn').style.display='';
   document.getElementById('towerInfo').innerHTML='Floor <span style="color:var(--neon)">1</span> - Pick a tile!';playClickSound();
 }
-function towerCashout(){if(!towerActive||towerRow===0)return;const p=prestigeBoost(towerBetAmt*towerMultiplier(),towerBetAmt);balance+=p;try{_balMark&&_balMark();}catch(e){}updateBalDisplay();
+function towerCashout(){if(!towerActive||towerRow<1)return;const p=prestigeBoost(towerBetAmt*towerMultiplier(),towerBetAmt);balance+=p;try{_balMark&&_balMark();}catch(e){}updateBalDisplay();
   showBigWin(p);showToast('+$'+p.toFixed(2));playWinSound();spawnParticles(window.innerWidth/2,window.innerHeight/2,30);
   towerActive=false;towerRevealAll();document.getElementById('towerStartBtn').style.display='';document.getElementById('towerCashoutBtn').style.display='none';
   document.getElementById('towerInfo').textContent='Cashed out at '+towerMultiplier().toFixed(2)+'× - $'+p.toFixed(2);recordGame('tower',towerBetAmt,p);firebaseSaveNow();
@@ -12058,7 +12082,7 @@ function horseRace() {
 
   const raceInterval = setInterval(() => {
     try {
-    let winner = -1;
+    let finishedThisTick = [];
 
     hrRaceHorses.forEach((h, i) => {
       if (progress[i] >= 100) return;
@@ -12077,7 +12101,7 @@ function horseRace() {
       if (progress[i] >= 70) {
         const energyRatio = Math.max(0.2, energy[i] / h.stam);
         tick *= 0.7 + energyRatio * 0.5;
-        
+
         if (h.jockey.style === 'Closer') tick *= 1.12;
         if (h.jockey.style === 'Front Runner') tick *= 0.92;
       }
@@ -12090,13 +12114,18 @@ function horseRace() {
 
       tick = Math.max(0.1, tick);
       progress[i] += tick;
-      if (progress[i] >= 100) { progress[i] = 100; if (winner < 0) winner = i; }
+      if (progress[i] >= 100) { progress[i] = 100; finishedThisTick.push(i); }
 
       const el = document.getElementById('hp' + h.idx);
       const em = document.getElementById('he' + h.idx);
       if (el) el.style.width = progress[i] + '%';
       if (em) em.style.left = Math.min(progress[i], 95) + '%';
     });
+
+    let winner = -1;
+    if (finishedThisTick.length > 0) {
+      winner = finishedThisTick[Math.floor(Math.random() * finishedThisTick.length)];
+    }
 
     if (winner >= 0) {
       clearInterval(raceInterval);
@@ -12163,8 +12192,9 @@ const SCRATCH_TIERS=[{name:'Basic',price:5,symbols:['🍒','🍋','🔔','💎',
 let scratchTier=0,scratchCells=[],scratchRevealed=0,scratchActive=false;
 function scratchSelectTier(t,btn){scratchTier=t;document.querySelectorAll('.scratch-tier').forEach(b=>b.classList.remove('selected'));if(btn)btn.classList.add('selected');document.getElementById('scratchBuyBtn').textContent='BUY CARD - $'+SCRATCH_TIERS[t].price;playClickSound();}
 function scratchBuy(){if(scratchActive)return;const tier=SCRATCH_TIERS[scratchTier];
+  if(!checkMaxBet(tier.price,'scratch'))return;
   if(tier.price>balance){showToast('Not enough balance!',false);return;}
-  balance-=tier.price;updateBalDisplay();scratchActive=true;scratchRevealed=0;scratchCells=[];
+  balance-=tier.price;updateBalDisplay();firebaseSaveBet(tier.price);scratchActive=true;scratchRevealed=0;scratchCells=[];
   const r=Math.random();let winCount=0;if(r<0.05)winCount=4;else if(r<0.22)winCount=3;
   if(winCount>0){
     const winSym=tier.symbols[Math.floor(Math.random()*tier.symbols.length)];
@@ -12189,7 +12219,7 @@ function scratchReveal(i){if(!scratchActive)return;const cells=document.querySel
   cells[i].classList.add('revealed');cells[i].innerHTML=_symHTML(scratchCells[i],'sym-md');scratchRevealed++;playSound(500+Math.random()*200,'sine',.04,.03);
   if(scratchRevealed===9){scratchActive=false;document.getElementById('scratchRevealAllBtn').style.display='none';const tier=SCRATCH_TIERS[scratchTier];const counts={};scratchCells.forEach(s=>{counts[s]=(counts[s]||0)+1;});
     let maxC=0;Object.values(counts).forEach(c=>{if(c>maxC)maxC=c;});let payout=0;
-    if(maxC>=3){payout=prestigeBoost(tier.price*(maxC===3?3:maxC===4?10:50),tier.price);payout=Math.min(payout,tier.maxWin);}
+    if(maxC>=3){payout=prestigeBoost(tier.price*(maxC===3?3:maxC===4?10:50),tier.price);}
     if(payout>0){balance+=payout;try{_balMark&&_balMark();}catch(e){}updateBalDisplay();showBigWin(payout);showToast(maxC+' matches! +$'+payout.toFixed(2));playWinSound();spawnParticles(window.innerWidth/2,window.innerHeight/2,30);
       document.getElementById('scratchResult').innerHTML='<span style="color:var(--green)">'+maxC+' MATCHES - +$'+payout+'!</span>';recordGame('scratch',tier.price,payout);firebaseSaveNow();}
     else{showToast('No matches',false);playLoseSound();document.getElementById('scratchResult').innerHTML='<span style="color:var(--red)">No matches</span>';recordGame('scratch',tier.price,0);}
@@ -12217,8 +12247,8 @@ function wheelSpin(){if(wheelSpinning)return;const bet=parseBet(document.getElem
   function anim(now){const elapsed=now-st;const prog=Math.min(elapsed/dur,1);const eased=1-Math.pow(1-prog,4);const cur=startAngle+totalRot*eased;drawWheel(cur);
     if(Math.abs(cur-lastTickAngle)>tickSize){lastTickAngle=cur;playSound(600+Math.random()*200,'sine',.015,.01);}
     if(prog<1)requestAnimationFrame(anim);
-    else{wheelAngle=cur%(Math.PI*2);wheelSpinning=false;document.getElementById('wheelSpinBtn').disabled=false;
-      
+    else{try{wheelAngle=cur%(Math.PI*2);const spinBtn=document.getElementById('wheelSpinBtn');if(spinBtn)spinBtn.disabled=false;
+
       const basePay=bet*seg.mult;
       const payout=prestigeBoost(basePay,bet);
       const effMult=basePay>0?Math.round((payout/bet)*100)/100:0;
@@ -12227,6 +12257,7 @@ function wheelSpin(){if(wheelSpinning)return;const bet=parseBet(document.getElem
         if(seg.mult>=5)spawnParticles(window.innerWidth/2,window.innerHeight/2,30+seg.mult*5);
         document.getElementById('wheelResult').innerHTML='<span style="color:var(--green)">'+mLabel+' - +$'+payout.toFixed(2)+'</span>';recordGame('wheel',bet,payout);firebaseSaveNow();}
       else{showToast(mLabel,false);playLoseSound();document.getElementById('wheelResult').innerHTML='<span style="color:var(--red)">'+mLabel+'</span>';recordGame('wheel',bet,0);}
+    }finally{wheelSpinning=false;const spinBtn2=document.getElementById('wheelSpinBtn');if(spinBtn2)spinBtn2.disabled=false;}
     }
   }requestAnimationFrame(anim);
 }
@@ -12295,13 +12326,12 @@ function baccDeal(){if(!baccBetType){showToast('Select bet!',false);return;}if(_
   playClickSound();
 }
 
-let hiloDeck=[],hiloCard=null,hiloStreakCount=0,hiloBetAmt=0,hiloActive=false,hiloSkipCount=0;
+let hiloDeck=[],hiloCard=null,hiloStreakCount=0,hiloBetAmt=0,hiloActive=false,hiloSkipCount=0,hiloAccumMult=1;
 const HILO_MAX_MULT=500; 
 const HILO_SKIP_PENALTY=0.10; 
 function hiloMultiplier(){
   if(hiloStreakCount===0)return 1;
-  let m=1;for(let i=0;i<hiloStreakCount;i++)m*=1.55;
-  
+  let m = (typeof hiloAccumMult === 'number' && hiloAccumMult > 0) ? hiloAccumMult : 1;
   for(let i=0;i<hiloSkipCount;i++)m*=(1-HILO_SKIP_PENALTY);
   m=Math.round(m*100)/100;
   return Math.min(m,HILO_MAX_MULT);
@@ -12309,7 +12339,7 @@ function hiloMultiplier(){
 function hiloStart(){if(hiloActive)return;const bet=parseBet(document.getElementById('hiloBet').value)||10;if(bet<=0)return;
   if(!checkMaxBet(bet,'Hi-Lo'))return;
   if(bet>balance){showToast('Not enough balance!',false);return;}
-  hiloBetAmt=bet;balance-=bet;updateBalDisplay();if(!firebaseSaveBet(bet))return;hiloActive=true;hiloStreakCount=0;hiloSkipCount=0;hiloDeck=newDeck();hiloCard=hiloDeck.pop();hiloRender();
+  hiloBetAmt=bet;balance-=bet;updateBalDisplay();if(!firebaseSaveBet(bet))return;hiloActive=true;hiloStreakCount=0;hiloSkipCount=0;hiloAccumMult=1;hiloDeck=newDeck();hiloCard=hiloDeck.pop();hiloRender();
   document.getElementById('hiloStartBtn').style.display='none';document.getElementById('hiloCashoutBtn').style.display='';playClickSound();
 }
 function hiloCashout(){if(!hiloActive||hiloStreakCount===0)return;const p=prestigeBoost(hiloBetAmt*hiloMultiplier(),hiloBetAmt);balance+=p;try{_balMark&&_balMark();}catch(e){}updateBalDisplay();
@@ -12328,11 +12358,15 @@ function hiloGuess(guess){if(!hiloActive)return;
   const tied = nextRank===curRank;
   
   if(guess==='higher')correct=nextRank>curRank;else if(guess==='lower')correct=nextRank<curRank;
+  let pCorrect = 0.5;
+  if(guess==='higher') pCorrect = (12 - curRank) / 13;
+  else if(guess==='lower') pCorrect = (curRank) / 13;
+  if(pCorrect < 0.05) pCorrect = 0.05;
   hiloCard=next;
   if(tied){hiloRender();playSound(400,'sine',.06,.05);
     showToast('TIE! Same card - try again.',false);
     document.getElementById('hiloStreak').innerHTML='<span style="color:var(--gold)">TIE!</span> Card was '+next.r+next.s+' - guess again';return;}
-  if(correct){hiloStreakCount++;playSound(500+hiloStreakCount*60,'sine',.08,.06);hiloRender();}
+  if(correct){hiloStreakCount++;hiloAccumMult*=(1/pCorrect)*0.98;playSound(500+hiloStreakCount*60,'sine',.08,.06);hiloRender();}
   else{hiloActive=false;hiloRender();showToast('-$'+hiloBetAmt.toFixed(2),false);playLoseSound();
     document.getElementById('hiloStartBtn').style.display='';document.getElementById('hiloCashoutBtn').style.display='none';
     document.getElementById('hiloStreak').innerHTML='<span style="color:var(--red)">WRONG!</span> Card was '+next.r+next.s;recordGame('hilo',hiloBetAmt,0);
@@ -12446,6 +12480,7 @@ window._onChatOnlineCount = function(count) {
 };
 
 function escapeHtml(str) {
+  if (str == null) return '';
   const div = document.createElement('div');
   div.textContent = str;
   return div.innerHTML;
@@ -12558,7 +12593,6 @@ window.addEventListener('load',()=>{
     const setVH=()=>document.documentElement.style.setProperty('--vh',window.visualViewport.height+'px');
     setVH();
     window.visualViewport.addEventListener('resize',setVH);
-    // iOS Safari: when keyboard opens, scroll active panel back to top so content not hidden
     window.visualViewport.addEventListener('resize',()=>{
       const panel=document.querySelector('.game-panel.active');
       if(panel && document.activeElement && (document.activeElement.tagName==='INPUT'||document.activeElement.tagName==='TEXTAREA')){
@@ -12569,10 +12603,10 @@ window.addEventListener('load',()=>{
       }
     });
   }
-  setInterval(firebaseSave,30000);
-  
+  window._dualSaveInterval = setInterval(firebaseSave,30000);
+
   let _lastTradeReqCount = 0;
-  setInterval(async ()=>{
+  window._tradeReqInterval = setInterval(async ()=>{
     if(!window._loadTradeRequests || !window._currentPlayerId) return;
     try {
       const reqs = await window._loadTradeRequests();
@@ -13772,7 +13806,8 @@ async function rrStartPvP() {
     });
     
     statusEl.innerHTML = `Challenge sent to <b>${opName}</b>! Waiting...<br><button class="action-btn" onclick="rrCancelPvP('${gameId}',${bet})" style="margin-top:8px;padding:6px 16px;font-size:11px;">Cancel</button>`;
-    
+
+    rrCleanupPvP();
     rrPvpUnsubscribe = window._fbOnValue('casino/rrGames/' + gameId, snap => {
       const g = snap.val();
       if (!g) return;
@@ -13789,7 +13824,17 @@ async function rrStartPvP() {
   }
 }
 
-function rrCancelPvP(gameId, bet) {
+async function rrCancelPvP(gameId, bet) {
+  try {
+    const snap = await window._fbGet('casino/rrGames/' + gameId);
+    if (snap.exists()) {
+      const room = snap.val();
+      if (room.status && room.status !== 'waiting') {
+        showToast('Cannot cancel - game already started!', false);
+        return;
+      }
+    }
+  } catch(e) {}
   window._fbRemove('casino/rrGames/' + gameId);
   balance += bet || (rrState ? rrState.bet : parseBet(document.getElementById('rrPvpBet').value));
   updateBalDisplay();
@@ -13934,7 +13979,13 @@ async function rrPvPAction(actionType) {
   
   const myTurn = (g.currentTurn === 'host' && isHost) || (g.currentTurn === 'guest' && !isHost);
   if (!myTurn) return;
-  
+
+  if (!g.cylinder) {
+    const nc = [0,0,0,0,0,0];
+    nc[Math.floor(Math.random()*6)] = 1;
+    await window._fbUpdate('casino/rrGames/' + gameId, { cylinder: nc.join(','), cylinderPos: 0 });
+    return;
+  }
   const chambers = g.cylinder.split(',').map(Number);
   const pos = g.cylinderPos || 0;
   const myName = isHost ? g.hostName : g.guestName;
@@ -14257,16 +14308,21 @@ function mpbsrJoinGame(gameId) {
     if (g.status === 'finished' && g.winner && !endHandled) {
       endHandled = true;
       const iWon = (g.winner === 'host' && isHost) || (g.winner === 'guest' && !isHost);
-      if (iWon) {
-        balance += g.bet * 2;
-        updateBalDisplay();
-        gameStats.mpbsr.won++;
-        if (g.bet * 2 > gameStats.mpbsr.biggestWin) gameStats.mpbsr.biggestWin = g.bet * 2;
+      const paidKey = isHost ? 'hostPaid' : 'guestPaid';
+      const alreadyPaid = !!g[paidKey];
+      if (!alreadyPaid) {
+        window._fbUpdate('casino/bsrGames/' + gameId, { [paidKey]: true }).catch(()=>{});
+        if (iWon) {
+          balance += g.bet * 2;
+          updateBalDisplay();
+          gameStats.mpbsr.won++;
+          if (g.bet * 2 > gameStats.mpbsr.biggestWin) gameStats.mpbsr.biggestWin = g.bet * 2;
+        }
+        gameStats.mpbsr.played++;
+        recordGame('mpbsr', g.bet, iWon ? g.bet * 2 : 0);
+        if (iWon) firebaseSaveNow();
       }
-      gameStats.mpbsr.played++;
-      recordGame('mpbsr', g.bet, iWon ? g.bet * 2 : 0);
-      if (iWon) firebaseSaveNow();
-      
+
       setTimeout(() => {
         const box = document.getElementById('mpbsrGameOverContent');
         if (iWon) {
@@ -14533,7 +14589,7 @@ function rrDeclinePvPChallenge(gameId) {
 }
 
 const _cups={active:false,ballCup:0,slots:[0,1,2],bet:0,diff:1};
-const CUPS_MULTS=[0,1.9,2.5,3.5];
+const CUPS_MULTS=[0,2.94,2.5,3.5];
 const CUPS_SHUFFLES=[0,8,16,28];
 
 function cupsInit(){
@@ -14618,7 +14674,7 @@ function cupsStart(){
   var bet=parseBet(document.getElementById('cupsBet').value)||100;
   if(bet<=0)return;
   if(bet>balance){showToast('Not enough!',false);return;}
-  if(!checkMaxBet(bet))return;
+  if(!checkMaxBet(bet,'Cups'))return;
   balance-=bet;_cups.bet=bet;_cups.active=true;
   _balMark();updateBalDisplay();if(!firebaseSaveBet(bet)){_cups.active=false;return;}
   var btn=document.getElementById('cupsStartBtn');
@@ -15554,7 +15610,11 @@ function renderLimitedCases() {
   }).join('');
 }
 
+let _limitedCaseBusy = false;
 async function openLimitedCase(lcId) {
+  if (_limitedCaseBusy) return;
+  _limitedCaseBusy = true;
+  try {
   const lc = limitedCases.find(c => c.id === lcId);
   if (!lc) { showToast('Case not found', false); return; }
   if (lc.expires < Date.now()) { showToast('Case expired!', false); return; }
@@ -15568,7 +15628,11 @@ async function openLimitedCase(lcId) {
       return;
     }
     const newRemaining = (cur.remaining||0) - 1;
-    await window._fbUpdate('casino/limitedCases/current', { remaining: newRemaining });
+    const reserveOk = await window._fbUpdate('casino/limitedCases/current', { remaining: newRemaining, _lastReserveBy: window._currentPlayerId, _lastReserveAt: Date.now() }).then(()=>true).catch(()=>false);
+    if(!reserveOk){ showToast('Could not reserve case', false); return; }
+    const verify = await window._fbGet('casino/limitedCases/current');
+    const ver = verify && verify.exists && verify.exists() ? verify.val() : null;
+    if(!ver || ver.remaining < 0){ showToast('SOLD OUT!', false); return; }
   } catch(e) {
     showToast('Could not reserve case', false);
     return;
@@ -15597,6 +15661,7 @@ async function openLimitedCase(lcId) {
   showToast(`${_ico(lc.icon,'ico-sm')} ${_ico(cat.icon,'ico-sm')} ${cat.name} (${rar.label}) - Worth ~$${val.toLocaleString()}!`, true);
   playClickSound();
   window._firebaseSave && firebaseSave();
+  } finally { _limitedCaseBusy = false; }
 }
 
 let cryptoPortfolio = JSON.parse(localStorage.getItem('casino_crypto')) || {};
@@ -16000,11 +16065,13 @@ async function adminSendAnnouncement() {
   if (!adminIsStaff()) return;
   const msg = document.getElementById('adminAnnounceInput').value.trim();
   if (!msg) { showToast('Type a message!', false); return; }
-  await window._fbSet('casino/admin/announcement', {
-    text: msg, time: Date.now(), by: window._currentUsername || 'Admin'
-  });
-  document.getElementById('adminAnnounceInput').value = '';
-  showToast('Announcement sent!', true);
+  try {
+    await window._fbSet('casino/admin/announcement', {
+      text: msg, time: Date.now(), by: window._currentUsername || 'Admin'
+    });
+    document.getElementById('adminAnnounceInput').value = '';
+    showToast('Announcement sent!', true);
+  } catch(e) { showToast('Admin action failed: ' + (e.message||'unknown'), false); }
 }
 
 function showAnnounceBanner(text) {
@@ -17113,10 +17180,6 @@ function renderEventChat(msgs) {
   if (wasAtBottom) container.scrollTop = container.scrollHeight;
 }
 
-function escapeHtml(s) {
-  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-
 async function sendEventChat() {
   const input = document.getElementById('eventChatInput');
   const text = input.value.trim();
@@ -17872,12 +17935,9 @@ function adminSetSelfBalance() {
       if(ad<nearestDist){nearestDist=ad;nearest=i;}
       var norm=d/denom; if(norm<-1)norm=-1; else if(norm>1)norm=1;
       var a=norm<0?-norm:norm;
-      /* Use only translate3d + scale — no rotateY, no negative tz.
-         rotateY requires preserve-3d which kills Safari compositing.
-         Negative tz causes background rectangles bleeding through at edges. */
       var sc=1-a*0.30;
       var tx=-norm*28;
-      var ty=a*12; /* slight vertical drop for side cards */
+      var ty=a*12;
       var op=1-a*0.38;
       c.style.transform='translate3d('+tx.toFixed(1)+'px,'+ty.toFixed(1)+'px,0) scale('+sc.toFixed(4)+')';
       c.style.opacity=op.toFixed(3);
