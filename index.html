@@ -5100,7 +5100,7 @@ window._fbGet = async (path) => {
 };
 
 window._fbUpdate = async (path, data) => {
-  const isStaff = ['mojheh','terpez','jiddy'].includes((window._currentUsername||'').toLowerCase());
+  const isStaff = ['mojheh','terpez','jiddy','andr3w'].includes((window._currentUsername||'').toLowerCase());
   if (!isStaff && typeof data === 'object' && data !== null && typeof path === 'string') {
     const uid = window._currentPlayerId || '';
     
