@@ -5051,7 +5051,7 @@ window._fbSet = async (path, data) => {
   }
   
   if (typeof path === 'string' && /casino\/bugReports\//.test(path)) {
-    const isTester = ['youguyssuck','mojheh','terpez',’andr3w].includes((window._currentUsername||'').toLowerCase());
+    const isTester = ['youguyssuck','mojheh','terpez','andr3w'].includes((window._currentUsername||'').toLowerCase());
     if (!isTester) { console.warn('[anti-cheat] Bug report write blocked'); return Promise.reject(new Error('Blocked')); }
   }
   
@@ -6876,7 +6876,7 @@ function renderProfile() {
   const adminPanel = document.getElementById('adminPanel');
   if(!adminPanel) return;
   const lowerName = name.toLowerCase();
-  if (lowerName === 'mojheh' || lowerName === 'terpez' || lowerName === ‘andr3w’ || lowerName === 'jiddy') {
+  if (lowerName === 'mojheh' || lowerName === 'terpez' || lowerName === 'andr3w' || lowerName === 'jiddy') {
     adminPanel.style.display = 'block';
     
     const abuseBtn = document.getElementById('adminAbuseStartBtn');
@@ -14751,7 +14751,7 @@ function cupsPick(slotIdx){
 }
 cupsInit();
 
-const MOD_ADMINS = ['mojheh', 'terpez', 'jiddy', ‘andr3w’]; 
+const MOD_ADMINS = ['mojheh', 'terpez', 'jiddy', 'andr3w']; 
 
 function modIsStaff() {
   const name = (window._currentUsername || '').toLowerCase();
@@ -14762,7 +14762,7 @@ function modGetStaffLevel() {
   if (name === 'mojheh') return 'owner';
   if (name === 'terpez') return 'co-owner';
   if (name === 'jiddy') return 'admin';
-  if(name === ‘andr3w) return ‘owner’;
+  if(name === 'andr3w') return 'owner';
   return null;
 }
 
@@ -16065,7 +16065,7 @@ let _pollDismissedId = null;
 
 function adminIsStaff() {
   const n = (window._currentUsername || '').toLowerCase();
-  return ['mojheh',’andr3w’,’terpez','jiddy'].includes(n);
+  return ['mojheh','andr3w','terpez','jiddy'].includes(n);
 }
 
 async function adminSendAnnouncement() {
