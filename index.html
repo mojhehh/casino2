@@ -946,9 +946,9 @@ body.reduced-motion *,body.reduced-motion *::before,body.reduced-motion *::after
 .chat-msg-name{font-size:11px;font-weight:700;color:var(--neon);margin-bottom:2px;}
 .chat-msg-name.guest-name{color:var(--text2);}
 .role-badge-owner{display:inline-block;font-size:8px;padding:1px 5px;border-radius:6px;margin-left:4px;background:linear-gradient(135deg,#ff3300,#ff6600);color:#fff;font-weight:900;letter-spacing:.5px;vertical-align:middle;}
-.role-badge-admin{display:inline-block;font-size:8px;padding:1px 5px;border-radius:6px;margin-left:4px;background:linear-gradient(135deg,#ff4444,#cc0000);color:#fff;font-weight:900;letter-spacing:.5px;vertical-align:middle;}
+.role-badge-developer{display:inline-block;font-size:8px;padding:1px 5px;border-radius:6px;margin-left:4px;background:linear-gradient(135deg,#004770,#0e76b3);color:#fff;font-weight:900;letter-spacing:.5px;vertical-align:middle;}
 .role-badge-coowner{display:inline-block;font-size:8px;padding:1px 5px;border-radius:6px;margin-left:4px;background:linear-gradient(135deg,#9b59b6,#8e44ad);color:#fff;font-weight:900;letter-spacing:.5px;vertical-align:middle;}
-.role-badge-developer{display:inline-block;font-size:8px;padding:1px 5px;border-radius:6px;margin-left:4px;background:linear-gradient(135deg,##004770,##0e76b3);color:#fff;font-weight:900;letter-spacing:.5px;vertical-align:middle;}
+.role-badge-admin{display:inline-block;font-size:8px;padding:1px 5px;border-radius:6px;margin-left:4px;background:linear-gradient(135deg,#ff4444,#cc0000);color:#fff;font-weight:900;letter-spacing:.5px;vertical-align:middle;}
 .role-badge-bugtester{display:inline-block;font-size:8px;padding:1px 5px;border-radius:6px;margin-left:4px;background:linear-gradient(135deg,#00cc88,#00aa66);color:#fff;font-weight:900;letter-spacing:.5px;vertical-align:middle;}
 .chat-msg-text{font-size:12px;color:var(--text);line-height:1.4;word-break:break-word;}
 .chat-msg-time{font-size:9px;color:var(--text2);margin-top:2px;}
@@ -5328,7 +5328,7 @@ window._sendChatMsg = async (text, username, type) => {
   else if (uname === 'terpez') role = 'co-owner';
   else if (uname === 'jiddy') role = 'admin';
   else if (uname === 'youguyssuck') role = 'bugtester';
-  else if (uname === 'andr3w') role = 'developer'
+  else if 
   await addDoc(collection(db, 'chat'), {
     user: username || 'Guest',
     text: type === 'img' ? text : text.slice(0, 200),
@@ -12445,6 +12445,7 @@ window._onChatMessages = function(msgs) {
       let roleBadge = '';
       if (m.role === 'owner') roleBadge = '<span class="role-badge-owner">OWNER</span>';
       else if (m.role === 'co-owner') roleBadge = '<span class="role-badge-coowner">CO-OWNER</span>';
+      else if (m.role === 'developer') roleBadge = '<span class="role-badge-developer">DEVELOPER</span'; 
       else if (m.role === 'admin') roleBadge = '<span class="role-badge-admin">ADMIN</span>';
       else if (m.role === 'bugtester') roleBadge = '<span class="role-badge-bugtester">BUG TESTER</span>';
       const avatarContent = m.profilePicUrl ? '<img src="' + escapeHtml(m.profilePicUrl) + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" onerror="this.style.display=\'none\'">': initial;
@@ -14762,9 +14763,9 @@ function modIsStaff() {
 function modGetStaffLevel() {
   const name = (window._currentUsername || '').toLowerCase();
   if (name === 'mojheh') return 'owner';
-   if(name === 'andr3w') return 'developer';
   if (name === 'terpez') return 'co-owner';
   if (name === 'jiddy') return 'admin';
+  if(name === 'andr3w') return 'owner';
   return null;
 }
 
