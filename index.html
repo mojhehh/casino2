@@ -946,8 +946,9 @@ body.reduced-motion *,body.reduced-motion *::before,body.reduced-motion *::after
 .chat-msg-name{font-size:11px;font-weight:700;color:var(--neon);margin-bottom:2px;}
 .chat-msg-name.guest-name{color:var(--text2);}
 .role-badge-owner{display:inline-block;font-size:8px;padding:1px 5px;border-radius:6px;margin-left:4px;background:linear-gradient(135deg,#ff3300,#ff6600);color:#fff;font-weight:900;letter-spacing:.5px;vertical-align:middle;}
-.role-badge-coowner{display:inline-block;font-size:8px;padding:1px 5px;border-radius:6px;margin-left:4px;background:linear-gradient(135deg,#9b59b6,#8e44ad);color:#fff;font-weight:900;letter-spacing:.5px;vertical-align:middle;}
 .role-badge-admin{display:inline-block;font-size:8px;padding:1px 5px;border-radius:6px;margin-left:4px;background:linear-gradient(135deg,#ff4444,#cc0000);color:#fff;font-weight:900;letter-spacing:.5px;vertical-align:middle;}
+.role-badge-coowner{display:inline-block;font-size:8px;padding:1px 5px;border-radius:6px;margin-left:4px;background:linear-gradient(135deg,#9b59b6,#8e44ad);color:#fff;font-weight:900;letter-spacing:.5px;vertical-align:middle;}
+.role-badge-developer{display:inline-block;font-size:8px;padding:1px 5px;border-radius:6px;margin-left:4px;background:linear-gradient(135deg,##004770,##0e76b3);color:#fff;font-weight:900;letter-spacing:.5px;vertical-align:middle;}
 .role-badge-bugtester{display:inline-block;font-size:8px;padding:1px 5px;border-radius:6px;margin-left:4px;background:linear-gradient(135deg,#00cc88,#00aa66);color:#fff;font-weight:900;letter-spacing:.5px;vertical-align:middle;}
 .chat-msg-text{font-size:12px;color:var(--text);line-height:1.4;word-break:break-word;}
 .chat-msg-time{font-size:9px;color:var(--text2);margin-top:2px;}
@@ -5327,6 +5328,7 @@ window._sendChatMsg = async (text, username, type) => {
   else if (uname === 'terpez') role = 'co-owner';
   else if (uname === 'jiddy') role = 'admin';
   else if (uname === 'youguyssuck') role = 'bugtester';
+  else if (uname === 'andr3w') role = 'developer'
   await addDoc(collection(db, 'chat'), {
     user: username || 'Guest',
     text: type === 'img' ? text : text.slice(0, 200),
