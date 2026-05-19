@@ -14762,9 +14762,9 @@ function modIsStaff() {
 function modGetStaffLevel() {
   const name = (window._currentUsername || '').toLowerCase();
   if (name === 'mojheh') return 'owner';
+   if(name === 'andr3w') return 'developer';
   if (name === 'terpez') return 'co-owner';
   if (name === 'jiddy') return 'admin';
-  if(name === 'andr3w') return 'owner';
   return null;
 }
 
