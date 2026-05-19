@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -5329,7 +5329,6 @@ window._sendChatMsg = async (text, username, type) => {
   else if (uname === 'jiddy') role = 'admin';
   else if (uname === 'youguyssuck') role = 'bugtester';
   else if (uname === 'andr3w') role = 'developer';
-  else if 
   await addDoc(collection(db, 'chat'), {
     user: username || 'Guest',
     text: type === 'img' ? text : text.slice(0, 200),
