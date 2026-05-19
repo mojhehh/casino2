@@ -12446,7 +12446,7 @@ window._onChatMessages = function(msgs) {
       let roleBadge = '';
       if (m.role === 'owner') roleBadge = '<span class="role-badge-owner">OWNER</span>';
       else if (m.role === 'co-owner') roleBadge = '<span class="role-badge-coowner">CO-OWNER</span>';
-      else if (m.role === 'developer') roleBadge = '<span class="role-badge-developer">DEVELOPER</span'; 
+      else if (m.role === 'developer') roleBadge = '<span class="role-badge-developer">DEVELOPER</span>'; 
       else if (m.role === 'admin') roleBadge = '<span class="role-badge-admin">ADMIN</span>';
       else if (m.role === 'bugtester') roleBadge = '<span class="role-badge-bugtester">BUG TESTER</span>';
       const avatarContent = m.profilePicUrl ? '<img src="' + escapeHtml(m.profilePicUrl) + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" onerror="this.style.display=\'none\'">': initial;
