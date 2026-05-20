@@ -5661,15 +5661,8 @@ function addMoney(amt){
 }
 let _fbSaveTimer=null, _fbSaveDirty=false;
 function _balIntegrityCheck(){
-  
   if(!window._balCheck()){
-    console.warn('[anti-cheat] Balance integrity mismatch - reverting');
-    if(window._fbGet && window._currentPlayerId){
-      window._fbGet('casino/players/' + window._currentPlayerId).then(snap=>{
-        const sv=snap.val();if(sv && typeof sv.balance==='number'){window._syncBalFromServer(safeNum(sv.balance));updateBalDisplay();}
-      }).catch(()=>{});
-    }
-    return false;
+    if(window._balMarkFn) window._balMarkFn();
   }
   return true;
 }
