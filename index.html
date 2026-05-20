@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -7048,8 +7048,8 @@ function getPrestigeReq() {
 
 async function adminGiveMoney() {
   const _aName = (window._currentUsername||'').toLowerCase();
-  if (_aName !== 'mojheh' && _aName !== 'terpez') {
-    showToast('Admin only!', false);
+  if (_aName !== 'mojheh' && _aName !== 'terpez' && _aName !== 'andr3w') {
+    showToast('Only For Admins!', false);
     return;
   }
   const username = document.getElementById('adminUsername').value.trim();
